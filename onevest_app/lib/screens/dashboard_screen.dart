@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'ai_screen.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
+import 'add_investment_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -38,6 +39,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           isLoading = false;
         });
       }
+    } else {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -45,13 +50,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
+        backgroundColor: Color(0xFF020B1D),
         body: Center(
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(
+            color: Colors.tealAccent,
+          ),
         ),
       );
     }
 
+    final name = userData?["name"] ?? "User";
     final email = userData?["email"] ?? "";
+    final riskProfile = userData?["riskProfile"] ?? "Not Set";
     final portfolio = userData?["portfolio"] ?? 0;
     final investment = userData?["totalInvestment"] ?? 0;
 
@@ -63,7 +73,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 0,
         title: const Text(
           "OneVest",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: const [
           Padding(
@@ -75,26 +87,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            const Text(
-              "Welcome 👋",
-              style: TextStyle(
+            Text(
+              "Hello, $name 👋",
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             Text(
               email,
               style: const TextStyle(
                 color: Colors.white70,
-                fontSize: 16,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.teal.withOpacity(.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                "Risk Profile : $riskProfile",
+                style: const TextStyle(
+                  color: Colors.tealAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
 
@@ -107,6 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Colors.blueGrey.shade800,
                 borderRadius: BorderRadius.circular(20),
               ),
+
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -168,20 +201,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+              actionButton(
+                context,
+                Icons.trending_up,
+                "Invest",
+                () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AddInvestmentScreen(),
+                    ),
+                  );
 
-                actionButton(
-                  context,
-                  Icons.trending_up,
-                  "Invest",
-                  () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Invest feature coming soon"),
-                      ),
-                    );
-                  },
-                ),
-
+                  // Reload the latest user data from Firestore
+                  await loadUser();
+                },
+              ),
                 actionButton(
                   context,
                   Icons.account_balance_wallet,
@@ -212,12 +247,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 actionButton(
                   context,
-                  Icons.school,
-                  "Learn",
+                  Icons.person,
+                  "Profile",
                   () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Learning Hub coming soon"),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileScreen(),
                       ),
                     );
                   },
@@ -253,7 +289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               "+0.63%",
               Colors.orange,
             ),
-                      ],
+          ],
         ),
       ),
 

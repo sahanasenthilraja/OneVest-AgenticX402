@@ -10,30 +10,40 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
+  final AuthService authService = AuthService();
+
   bool hidePassword = true;
   bool isLoading = false;
 
-  final AuthService authService = AuthService();
+  String riskProfile = "Medium";
 
   Future<void> signUp() async {
-    if (emailController.text.trim().isEmpty ||
+    if (nameController.text.trim().isEmpty ||
+        emailController.text.trim().isEmpty ||
+        phoneController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty ||
         confirmPasswordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please fill all fields"),
+        ),
+      );
       return;
     }
 
     if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Passwords do not match"),
+        ),
+      );
       return;
     }
 
@@ -42,7 +52,10 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     String? error = await authService.signUp(
+      name: nameController.text,
       email: emailController.text,
+      phone: phoneController.text,
+      riskProfile: riskProfile,
       password: passwordController.text,
     );
 
@@ -54,47 +67,76 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Account created successfully!")),
+        const SnackBar(
+          content: Text("Account created successfully!"),
+        ),
       );
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+        ),
       );
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
+    nameController.dispose();
     emailController.dispose();
+    phoneController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  InputDecoration decoration(String hint, IconData icon) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.white54),
+      prefixIcon: Icon(icon, color: Colors.tealAccent),
+      filled: true,
+      fillColor: const Color(0xFF1A2B45),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF020B1D),
+
       appBar: AppBar(
         backgroundColor: const Color(0xFF020B1D),
         elevation: 0,
         title: const Text("Create Account"),
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
+
         child: Column(
           children: [
-            Image.asset("assets/images/onevest_logo.png", height: 120),
+
+            Image.asset(
+              "assets/images/onevest_logo.png",
+              height: 120,
+            ),
 
             const SizedBox(height: 20),
 
             const Text(
               "Create Your OneVest Account",
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -105,18 +147,68 @@ class _SignupScreenState extends State<SignupScreen> {
             const SizedBox(height: 30),
 
             TextField(
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
+              decoration: decoration(
+                "Full Name",
+                Icons.person,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            TextField(
               controller: emailController,
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: "Email",
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.email),
-                filled: true,
-                fillColor: const Color(0xFF1A2B45),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              decoration: decoration(
+                "Email",
+                Icons.email,
               ),
+            ),
+
+            const SizedBox(height: 20),
+
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              style: const TextStyle(color: Colors.white),
+              decoration: decoration(
+                "Phone Number",
+                Icons.phone,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            DropdownButtonFormField<String>(
+              value: riskProfile,
+              dropdownColor: const Color(0xFF1A2B45),
+              decoration: decoration(
+                "Risk Profile",
+                Icons.show_chart,
+              ),
+              style: const TextStyle(
+                color: Colors.white,
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: "Low",
+                  child: Text("Low"),
+                ),
+                DropdownMenuItem(
+                  value: "Medium",
+                  child: Text("Medium"),
+                ),
+                DropdownMenuItem(
+                  value: "High",
+                  child: Text("High"),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  riskProfile = value!;
+                });
+              },
             ),
 
             const SizedBox(height: 20),
@@ -125,24 +217,22 @@ class _SignupScreenState extends State<SignupScreen> {
               controller: passwordController,
               obscureText: hidePassword,
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: "Password",
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.lock),
+              decoration: decoration(
+                "Password",
+                Icons.lock,
+              ).copyWith(
                 suffixIcon: IconButton(
                   icon: Icon(
-                    hidePassword ? Icons.visibility_off : Icons.visibility,
+                    hidePassword
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.white,
                   ),
                   onPressed: () {
                     setState(() {
                       hidePassword = !hidePassword;
                     });
                   },
-                ),
-                filled: true,
-                fillColor: const Color(0xFF1A2B45),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -153,30 +243,33 @@ class _SignupScreenState extends State<SignupScreen> {
               controller: confirmPasswordController,
               obscureText: hidePassword,
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: "Confirm Password",
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.lock_outline),
-                filled: true,
-                fillColor: const Color(0xFF1A2B45),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              decoration: decoration(
+                "Confirm Password",
+                Icons.lock_outline,
               ),
             ),
 
             const SizedBox(height: 35),
-
-            SizedBox(
+                      SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: isLoading ? null : signUp,
-                child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("SIGN UP", style: TextStyle(fontSize: 18)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.tealAccent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                 ),
+                child: isLoading
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                      )
+                    : const Text(
+                        "SIGN UP",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
 
@@ -184,11 +277,19 @@ class _SignupScreenState extends State<SignupScreen> {
 
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LoginScreen(),
+                  ),
+                );
               },
               child: const Text(
                 "Already have an account? Login",
-                style: TextStyle(color: Colors.tealAccent),
+                style: TextStyle(
+                  color: Colors.tealAccent,
+                  fontSize: 16,
+                ),
               ),
             ),
           ],
@@ -196,4 +297,4 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
-}
+} 
