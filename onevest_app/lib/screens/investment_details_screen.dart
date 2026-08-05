@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import 'edit_investment_screen.dart';
+
 class InvestmentDetailsScreen extends StatelessWidget {
   final String investmentId;
   final Map<String, dynamic> investmentData;
@@ -96,10 +98,20 @@ class InvestmentDetailsScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Edit feature coming next!")),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EditInvestmentScreen(
+                        investmentId: investmentId,
+                        investmentData: investmentData,
+                      ),
+                    ),
                   );
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,

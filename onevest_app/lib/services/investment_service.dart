@@ -22,7 +22,11 @@ class InvestmentService {
       throw Exception("User not logged in");
     }
 
-    double currentValue = quantity * buyPrice;
+    // Current price is initially equal to buy price
+    double currentPrice = buyPrice;
+
+    // Current value = quantity × current price
+    double currentValue = quantity * currentPrice;
 
     try {
       await _firestore.collection("investments").add({
@@ -31,6 +35,7 @@ class InvestmentService {
         "investmentType": investmentType,
         "quantity": quantity,
         "buyPrice": buyPrice,
+        "currentPrice": currentPrice,
         "currentValue": currentValue,
         "purchaseDate": purchaseDate,
         "createdAt": FieldValue.serverTimestamp(),

@@ -2,19 +2,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'add_investment_screen.dart';
 import 'ai_screen.dart';
+import 'portfolio_analytics_screen.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
-import 'add_investment_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() =>
+      _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState
+    extends State<DashboardScreen> {
   Map<String, dynamic>? userData;
   bool isLoading = true;
 
@@ -25,25 +28,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> loadUser() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user =
+        FirebaseAuth.instance.currentUser;
 
-    if (user != null) {
-      final doc = await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .get();
-
+    if (user == null) {
       if (mounted) {
         setState(() {
-          userData = doc.data();
           isLoading = false;
         });
       }
-    } else {
-      setState(() {
-        isLoading = false;
-      });
+      return;
     }
+
+    final doc = await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .get();
+
+    if (!mounted) return;
+
+    setState(() {
+      userData = doc.data();
+      isLoading = false;
+    });
   }
 
   @override
@@ -59,17 +66,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    final name = userData?["name"] ?? "User";
-    final email = userData?["email"] ?? "";
-    final riskProfile = userData?["riskProfile"] ?? "Not Set";
-    final portfolio = userData?["portfolio"] ?? 0;
-    final investment = userData?["totalInvestment"] ?? 0;
+    final name =
+        userData?["name"] ?? "User";
+
+    final email =
+        userData?["email"] ?? "";
+
+    final riskProfile =
+        userData?["riskProfile"] ??
+            "Not Set";
+
+    final portfolio =
+        (userData?["portfolio"] ?? 0)
+            .toDouble();
+
+    final investment =
+        (userData?["totalInvestment"] ?? 0)
+            .toDouble();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF020B1D),
+      backgroundColor:
+          const Color(0xFF020B1D),
 
       appBar: AppBar(
-        backgroundColor: const Color(0xFF020B1D),
+        backgroundColor:
+            const Color(0xFF020B1D),
         elevation: 0,
         title: const Text(
           "OneVest",
@@ -79,25 +100,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: const [
           Padding(
-            padding: EdgeInsets.only(right: 15),
-            child: Icon(Icons.notifications_none),
+            padding:
+                EdgeInsets.only(right: 15),
+            child: Icon(
+              Icons.notifications_none,
+            ),
           ),
         ],
       ),
 
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-
+        padding:
+            const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
 
             Text(
               "Hello, $name 👋",
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
 
@@ -105,27 +132,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             Text(
               email,
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 color: Colors.white70,
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 8,
               ),
-              decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(.2),
-                borderRadius: BorderRadius.circular(10),
+              decoration:
+                  BoxDecoration(
+                color: Colors.teal
+                    .withValues(alpha: 0.2),
+                borderRadius:
+                    BorderRadius.circular(
+                        10),
               ),
               child: Text(
                 "Risk Profile : $riskProfile",
-                style: const TextStyle(
-                  color: Colors.tealAccent,
-                  fontWeight: FontWeight.bold,
+                style:
+                    const TextStyle(
+                  color:
+                      Colors.tealAccent,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
             ),
@@ -134,31 +170,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.blueGrey.shade800,
-                borderRadius: BorderRadius.circular(20),
+              padding:
+                  const EdgeInsets.all(20),
+              decoration:
+                  BoxDecoration(
+                color: Colors
+                    .blueGrey.shade800,
+                borderRadius:
+                    BorderRadius.circular(
+                        20),
               ),
-
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
                 children: [
 
                   const Text(
                     "Portfolio Value",
                     style: TextStyle(
-                      color: Colors.white70,
+                      color:
+                          Colors.white70,
                     ),
                   ),
 
                   const SizedBox(height: 10),
 
                   Text(
-                    "₹$portfolio",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                    "₹${portfolio.toStringAsFixed(2)}",
+                    style:
+                        const TextStyle(
+                      color:
+                          Colors.white,
+                      fontSize: 30,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
 
@@ -167,18 +213,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const Text(
                     "Total Investment",
                     style: TextStyle(
-                      color: Colors.white70,
+                      color:
+                          Colors.white70,
                     ),
                   ),
 
                   const SizedBox(height: 10),
 
                   Text(
-                    "₹$investment",
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
+                    "₹${investment.toStringAsFixed(2)}",
+                    style:
+                        const TextStyle(
+                      color: Colors
+                          .greenAccent,
                       fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ],
@@ -192,31 +242,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
 
             const SizedBox(height: 20),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            Wrap(
+              spacing: 30,
+              runSpacing: 25,
+              alignment:
+                  WrapAlignment.center,
               children: [
-              actionButton(
-                context,
-                Icons.trending_up,
-                "Invest",
-                () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AddInvestmentScreen(),
-                    ),
-                  );
 
-                  // Reload the latest user data from Firestore
-                  await loadUser();
-                },
-              ),
+                actionButton(
+                  context,
+                  Icons.trending_up,
+                  "Invest",
+                  () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const AddInvestmentScreen(),
+                      ),
+                    );
+
+                    await loadUser();
+                  },
+                ),
+
                 actionButton(
                   context,
                   Icons.account_balance_wallet,
@@ -225,7 +281,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const PortfolioScreen(),
+                        builder: (_) =>
+                            const PortfolioScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                actionButton(
+                  context,
+                  Icons.pie_chart,
+                  "Analytics",
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const PortfolioAnalyticsScreen(),
                       ),
                     );
                   },
@@ -239,7 +311,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const AiScreen(),
+                        builder: (_) =>
+                            const AiScreen(),
                       ),
                     );
                   },
@@ -253,7 +326,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const ProfileScreen(),
+                        builder: (_) =>
+                            const ProfileScreen(),
                       ),
                     );
                   },
@@ -268,7 +342,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
-                fontWeight: FontWeight.bold,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
 
@@ -293,18 +368,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF1A2B45),
-        selectedItemColor: Colors.tealAccent,
-        unselectedItemColor: Colors.white60,
+      bottomNavigationBar:
+          BottomNavigationBar(
+        backgroundColor:
+            const Color(0xFF1A2B45),
+        selectedItemColor:
+            Colors.tealAccent,
+        unselectedItemColor:
+            Colors.white60,
         currentIndex: 0,
-        type: BottomNavigationBarType.fixed,
+        type:
+            BottomNavigationBarType.fixed,
         onTap: (index) {
           if (index == 1) {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const PortfolioScreen(),
+                builder: (_) =>
+                    const PortfolioScreen(),
               ),
             );
           }
@@ -313,7 +394,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const AiScreen(),
+                builder: (_) =>
+                    const AiScreen(),
               ),
             );
           }
@@ -322,7 +404,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const ProfileScreen(),
+                builder: (_) =>
+                    const ProfileScreen(),
               ),
             );
           }
@@ -333,7 +416,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: "Home",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet),
+            icon: Icon(
+              Icons.account_balance_wallet,
+            ),
             label: "Portfolio",
           ),
           BottomNavigationBarItem(
@@ -348,8 +433,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  Widget actionButton(
+    Widget actionButton(
     BuildContext context,
     IconData icon,
     String text,
@@ -367,11 +451,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: Colors.white,
             ),
           ),
+
           const SizedBox(height: 8),
+
           Text(
             text,
             style: const TextStyle(
               color: Colors.white,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -387,17 +474,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) {
     return Card(
       color: const Color(0xFF1A2B45),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: ListTile(
-        leading: Icon(
-          icon,
-          color: color,
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.2),
+          child: Icon(
+            icon,
+            color: color,
+          ),
         ),
+
         title: Text(
           title,
           style: const TextStyle(
             color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
+
         subtitle: Text(
           value,
           style: TextStyle(
@@ -405,6 +501,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+
         trailing: const Icon(
           Icons.arrow_forward_ios,
           color: Colors.white54,
