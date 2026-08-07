@@ -7,6 +7,7 @@ import 'ai_screen.dart';
 import 'portfolio_analytics_screen.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
+import '../widgets/live_market_widget.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -337,33 +338,9 @@ class _DashboardScreenState
 
             const SizedBox(height: 35),
 
-            const Text(
-              "Today's Market",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight:
-                    FontWeight.bold,
-              ),
-            ),
+            const LiveMarketWidget(),
 
-            const SizedBox(height: 15),
-
-            marketCard(
-              Icons.show_chart,
-              "NIFTY 50",
-              "+0.82%",
-              Colors.green,
-            ),
-
-            const SizedBox(height: 10),
-
-            marketCard(
-              Icons.bar_chart,
-              "SENSEX",
-              "+0.63%",
-              Colors.orange,
-            ),
+            const SizedBox(height: 25),
           ],
         ),
       ),

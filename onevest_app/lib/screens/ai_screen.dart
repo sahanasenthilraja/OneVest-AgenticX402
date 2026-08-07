@@ -1,7 +1,88 @@
 import 'package:flutter/material.dart';
+import '../widgets/disclaimer_card.dart';
 
-class AiScreen extends StatelessWidget {
+class AiScreen extends StatefulWidget {
   const AiScreen({super.key});
+
+  @override
+  State<AiScreen> createState() => _AiScreenState();
+}
+
+class _AiScreenState extends State<AiScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  final List<Map<String, dynamic>> messages = [];
+
+  bool isTyping = false;
+
+  final Map<String, String> knowledgeBase = {
+    "gold":
+        "Gold is considered a safe investment and helps reduce portfolio risk during market volatility.",
+
+    "stock":
+        "Stocks offer high long-term returns but come with higher market risk.",
+
+    "mutual":
+        "Mutual Funds provide diversification and are ideal for long-term investors.",
+
+    "crypto":
+        "Cryptocurrency is highly volatile. Invest only a small portion of your portfolio.",
+
+    "sip":
+        "A SIP allows you to invest a fixed amount regularly, helping average out market fluctuations.",
+
+    "risk":
+        "To reduce risk, diversify your investments across multiple asset classes.",
+
+    "fd":
+        "Fixed Deposits are low-risk investments that provide guaranteed returns.",
+
+    "portfolio":
+        "A balanced portfolio should contain a mix of Stocks, Mutual Funds, Gold and Fixed Deposits.",
+  };
+
+  Future<void> sendMessage() async {
+    final question = _controller.text.trim();
+
+    if (question.isEmpty) return;
+
+    setState(() {
+      messages.add({"isUser": true, "text": question});
+
+      isTyping = true;
+    });
+
+    _controller.clear();
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    String answer =
+        "I'm OneVest AI. I currently answer investment-related questions only.";
+
+    for (final key in knowledgeBase.keys) {
+      if (question.toLowerCase().contains(key)) {
+        answer = knowledgeBase[key]!;
+        break;
+      }
+    }
+
+    setState(() {
+      messages.add({"isUser": false, "text": answer});
+
+      isTyping = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent + 150,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,93 +92,143 @@ class AiScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF020B1D),
         elevation: 0,
-        title: const Text("AI Advisor"),
-      ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-
+        title: const Row(
           children: [
-
-            const Text(
-              "🤖 AI Investment Advisor",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            buildCard(
-              "Portfolio Risk",
-              "🟢 Low Risk",
-              Colors.green,
-            ),
-
-            const SizedBox(height: 20),
-
-            buildCard(
-              "Market Trend",
-              "📈 Bullish",
-              Colors.blue,
-            ),
-
-            const SizedBox(height: 20),
-
-            buildCard(
-              "Recommended SIP",
-              "₹3,000 / Month",
-              Colors.orange,
-            ),
-
-            const SizedBox(height: 20),
-
-            buildCard(
-              "AI Suggestion",
-              "Invest ₹5,000 in an Index Fund.",
-              Colors.teal,
-            ),
-
+            Icon(Icons.smart_toy, color: Colors.tealAccent),
+            SizedBox(width: 10),
+            Text("OneVest AI"),
           ],
         ),
       ),
-    );
-  }
 
-  static Widget buildCard(
-      String title,
-      String value,
-      Color color,
-      ) {
-    return Card(
-      color: const Color(0xFF1A2B45),
+      body: Column(
+        children: [
+          Expanded(
+            child: messages.isEmpty
+                ? const Center(
+                    child: Text(
+                      "👋 Hi!\n\nI'm OneVest AI.\nAsk me anything about investments.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 18),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(15),
+                    itemCount: messages.length + (isTyping ? 1 : 0),
 
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color,
-          child: const Icon(
-            Icons.smart_toy,
-            color: Colors.white,
+                    itemBuilder: (context, index) {
+                      if (isTyping && index == messages.length) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 15),
+                            padding: const EdgeInsets.all(15),
+
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A2B45),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.tealAccent,
+                                  ),
+                                ),
+
+                                SizedBox(width: 12),
+
+                                Text(
+                                  "OneVest AI is typing...",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      final msg = messages[index];
+
+                      return Align(
+                        alignment: msg["isUser"]
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 300),
+
+                          margin: const EdgeInsets.only(bottom: 15),
+
+                          padding: const EdgeInsets.all(15),
+
+                          decoration: BoxDecoration(
+                            color: msg["isUser"]
+                                ? Colors.teal
+                                : const Color(0xFF1A2B45),
+
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+
+                          child: Text(
+                            msg["text"],
+
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
-        ),
+          Container(
+            padding: const EdgeInsets.all(15),
+            color: const Color(0xFF020B1D),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: "Ask about investments...",
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: const Color(0xFF1A2B45),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (_) => sendMessage(),
+                  ),
+                ),
 
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.white),
-        ),
+                const SizedBox(width: 10),
 
-        subtitle: Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.teal,
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: sendMessage,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          const DisclaimerCard(),
+        ],
       ),
     );
   }
