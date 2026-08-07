@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../models/performance_data.dart';
 
 class PortfolioAnalyticsScreen extends StatelessWidget {
   const PortfolioAnalyticsScreen({super.key});
@@ -28,27 +29,38 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
             .where("userId", isEqualTo: user!.uid)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData ||
-              snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text(
                 "No Investments Found",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 18),
               ),
             );
           }
 
           final docs = snapshot.data!.docs;
+          final List<PerformanceData> performanceData = [];
+
+          double runningValue = 0;
+
+          for (int i = 0; i < docs.length; i++) {
+            final data = docs[i].data() as Map<String, dynamic>;
+
+            final currentValue = (data["currentValue"] as num).toDouble();
+
+            runningValue += currentValue;
+
+            performanceData.add(
+              PerformanceData(
+                date: DateTime.now().subtract(Duration(days: docs.length - i)),
+                value: runningValue,
+              ),
+            );
+          }
 
           Map<String, double> portfolio = {
             "Stock": 0,
@@ -61,29 +73,22 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
           double totalValue = 0;
 
           for (var doc in docs) {
-            final data =
-                doc.data() as Map<String, dynamic>;
+            final data = doc.data() as Map<String, dynamic>;
 
-            double buyPrice =
-                (data["buyPrice"] as num).toDouble();
+            double buyPrice = (data["buyPrice"] as num).toDouble();
 
-            double currentPrice =
-                data.containsKey("currentPrice")
-                    ? (data["currentPrice"] as num)
-                        .toDouble()
-                    : buyPrice;
+            double currentPrice = data.containsKey("currentPrice")
+                ? (data["currentPrice"] as num).toDouble()
+                : buyPrice;
 
-            int quantity =
-                (data["quantity"] as num).toInt();
+            int quantity = (data["quantity"] as num).toInt();
 
             double value = currentPrice * quantity;
 
             totalValue += value;
 
             portfolio[data["investmentType"]] =
-                (portfolio[data["investmentType"]] ??
-                        0) +
-                    value;
+                (portfolio[data["investmentType"]] ?? 0) + value;
           }
 
           final colors = [
@@ -96,15 +101,13 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
 
           int colorIndex = 0;
 
-          final sections = portfolio.entries
-              .where((e) => e.value > 0)
-              .map((entry) {
+          final sections = portfolio.entries.where((e) => e.value > 0).map((
+            entry,
+          ) {
             final section = PieChartSectionData(
               value: entry.value,
-              color:
-                  colors[colorIndex % colors.length],
-              title:
-                  "${(entry.value / totalValue * 100).toStringAsFixed(0)}%",
+              color: colors[colorIndex % colors.length],
+              title: "${(entry.value / totalValue * 100).toStringAsFixed(0)}%",
               radius: 90,
               titleStyle: const TextStyle(
                 color: Colors.white,
@@ -127,16 +130,12 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
                 Card(
                   color: const Color(0xFF1A2B45),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
                         const Text(
                           "Total Portfolio Value",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 16),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -144,8 +143,7 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 30,
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -168,34 +166,98 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
+                const Text(
+                  "Portfolio Performance",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  height: 250,
+                  child: LineChart(
+                    LineChartData(
+                      gridData: FlGridData(show: true),
+                      borderData: FlBorderData(show: true),
+
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 45,
+                          ),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              return Text(
+                                "${value.toInt() + 1}",
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: List.generate(
+                            performanceData.length,
+                            (i) =>
+                                FlSpot(i.toDouble(), performanceData[i].value),
+                          ),
+                          isCurved: true,
+                          color: Colors.tealAccent,
+                          barWidth: 4,
+                          dotData: const FlDotData(show: true),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: Colors.tealAccent.withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
                 ...portfolio.entries
                     .where((e) => e.value > 0)
                     .map(
                       (entry) => Card(
-                        color:
-                            const Color(0xFF1A2B45),
+                        color: const Color(0xFF1A2B45),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: colors[
-                                colorIndex++ %
-                                    colors.length],
+                            backgroundColor:
+                                colors[colorIndex++ % colors.length],
                           ),
                           title: Text(
                             entry.key,
-                            style:
-                                const TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                           trailing: Text(
                             "₹${entry.value.toStringAsFixed(2)}",
-                            style:
-                                const TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),

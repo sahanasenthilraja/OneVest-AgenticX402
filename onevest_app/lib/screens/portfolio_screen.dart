@@ -239,7 +239,7 @@ void dispose() {
                   itemCount: filteredDocs.length,
                   padding: const EdgeInsets.symmetric(horizontal: 15),
                   itemBuilder: (context, index) {
-                    final investment = filteredDocs[index];
+                    final investment = docs[index];
 
                     double buyPrice = (investment["buyPrice"] as num)
                         .toDouble();
