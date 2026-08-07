@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/disclaimer_card.dart';
+import 'roast_screen.dart';
+import 'financial_twin_screen.dart';
 
 class AiScreen extends StatefulWidget {
   const AiScreen({super.key});
@@ -103,6 +105,101 @@ class _AiScreenState extends State<AiScreen> {
 
       body: Column(
         children: [
+          Container(
+            margin: const EdgeInsets.fromLTRB(15, 15, 15, 5),
+
+            child: Card(
+            color: Colors.deepOrange,
+
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+
+            child: ListTile(
+              leading: const Icon(
+                Icons.local_fire_department,
+                color: Colors.white,
+                size: 35,
+              ),
+
+              title: const Text(
+                "🔥 AI Roast Mode",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              subtitle: const Text(
+                "Your portfolio... brutally reviewed 😅",
+                style: TextStyle(color: Colors.white70),
+              ),
+
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white,
+              ),
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RoastScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+
+        Container(
+  margin: const EdgeInsets.fromLTRB(15, 5, 15, 10),
+
+  child: Card(
+    color: Colors.teal,
+
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
+
+    child: ListTile(
+      leading: const Icon(
+        Icons.person,
+        color: Colors.white,
+        size: 35,
+      ),
+
+      title: const Text(
+        "👤 Financial Twin",
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+
+      subtitle: const Text(
+        "Discover your AI financial personality",
+        style: TextStyle(
+          color: Colors.white70,
+        ),
+      ),
+
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        color: Colors.white,
+      ),
+
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const FinancialTwinScreen(),
+          ),
+        );
+      },
+    ),
+  ),
+),
           Expanded(
             child: messages.isEmpty
                 ? const Center(
