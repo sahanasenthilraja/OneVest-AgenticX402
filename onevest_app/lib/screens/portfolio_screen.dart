@@ -29,13 +29,41 @@ void dispose() {
       backgroundColor: const Color(0xFF020B1D),
 
       appBar: AppBar(
-        backgroundColor: const Color(0xFF020B1D),
-        elevation: 0,
-        title: const Text(
-          "My Portfolio",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+  backgroundColor: const Color(0xFF020B1D),
+  elevation: 0,
+  centerTitle: false,
+  scrolledUnderElevation: 0,
+
+  leading: IconButton(
+    icon: const Icon(
+      Icons.arrow_back_ios_new_rounded,
+      color: Colors.white,
+      size: 22,
+    ),
+    onPressed: () => Navigator.pop(context),
+  ),
+
+  title: const Text(
+    "My Portfolio",
+    style: TextStyle(
+      color: Colors.white,
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.3,
+    ),
+  ),
+
+  actions: [
+    IconButton(
+      icon: const Icon(
+        Icons.notifications_none_rounded,
+        color: Colors.white,
       ),
+      onPressed: () {},
+    ),
+    const SizedBox(width: 8),
+  ],
+),
 
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -107,102 +135,144 @@ void dispose() {
                 margin: const EdgeInsets.all(20),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.blueGrey.shade800,
-                  borderRadius: BorderRadius.circular(18),
-                ),
+  color: const Color(0xFF16253C),
+  borderRadius: BorderRadius.circular(22),
+  border: Border.all(
+    color: Colors.white10,
+  ),
+  boxShadow: const [
+    BoxShadow(
+      color: Colors.black26,
+      blurRadius: 12,
+      offset: Offset(0, 6),
+    ),
+  ],
+),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Portfolio Summary",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Row(
+      children: const [
+        Icon(
+          Icons.account_balance_wallet_rounded,
+          color: Colors.tealAccent,
+          size: 28,
+        ),
+        SizedBox(width: 10),
+        Text(
+          "Portfolio Summary",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ),
 
-                    const SizedBox(height: 20),
+    const SizedBox(height: 25),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Total Invested",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        Text(
-                          "₹${totalInvested.toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+    Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          "Total Invested",
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          "₹${totalInvested.toStringAsFixed(2)}",
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
 
-                    const SizedBox(height: 12),
+    const SizedBox(height: 18),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Current Value",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        Text(
-                          "₹${totalPortfolio.toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+    Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          "Current Value",
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          "₹${totalPortfolio.toStringAsFixed(2)}",
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
 
-                    const Divider(color: Colors.white30, height: 30),
+    const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: Divider(
+        color: Colors.white24,
+        thickness: 1,
+      ),
+    ),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          isOverallProfit ? "Overall Profit" : "Overall Loss",
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                        Text(
-                          "${isOverallProfit ? "+" : "-"}₹${overallProfit.abs().toStringAsFixed(2)}",
-                          style: TextStyle(
-                            color: isOverallProfit
-                                ? Colors.greenAccent
-                                : Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+    Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          isOverallProfit ? "Overall Profit" : "Overall Loss",
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          "${isOverallProfit ? "+" : "-"}₹${overallProfit.abs().toStringAsFixed(2)}",
+          style: TextStyle(
+            color: isOverallProfit
+                ? Colors.greenAccent
+                : Colors.redAccent,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
 
-                    const SizedBox(height: 10),
+    const SizedBox(height: 18),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Return",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        Text(
-                          "${isOverallProfit ? "+" : "-"}${overallReturn.abs().toStringAsFixed(2)}%",
-                          style: TextStyle(
-                            color: isOverallProfit
-                                ? Colors.greenAccent
-                                : Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+    Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          "Return",
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+          ),
+        ),
+        Text(
+          "${isOverallProfit ? "+" : "-"}${overallReturn.abs().toStringAsFixed(2)}%",
+          style: TextStyle(
+            color: isOverallProfit
+                ? Colors.greenAccent
+                : Colors.redAccent,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  ],
+),
               ),
 
               Padding(
@@ -212,13 +282,15 @@ void dispose() {
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: "Search Investments...",
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    prefixIcon: const Icon(
+hintStyle: const TextStyle(
+  color: Colors.white54,
+  fontSize: 16,
+),                    prefixIcon: const Icon(
                       Icons.search,
                       color: Colors.tealAccent,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFF1A2B45),
+                  fillColor: const Color(0xFF132743),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -279,21 +351,36 @@ void dispose() {
                           ),
                         );
                       },
-                      child: Card(
-                        color: const Color(0xFF1A2B45),
-                        margin: const EdgeInsets.only(bottom: 15),
-                        child: ListTile(
-                          leading: const CircleAvatar(
-                            backgroundColor: Colors.teal,
-                            child: Icon(Icons.trending_up, color: Colors.white),
-                          ),
+ child: Card(
+  elevation: 8,
+  shadowColor: Colors.black26,
+  color: const Color(0xFF14253F),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(24),
+  ),
 
+  margin: const EdgeInsets.symmetric(
+    horizontal: 4,
+    vertical: 8,
+  ),
+
+  child: ListTile(
+  leading: const CircleAvatar(
+    radius: 26,
+    backgroundColor: Color(0xFF14C8B0),
+    child: Icon(
+      Icons.show_chart_rounded,
+      color: Colors.white,
+      size: 28,
+    ),
+  ),
                           title: Text(
                             investment["investmentName"],
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+  color: Colors.white,
+  fontSize: 19,
+  fontWeight: FontWeight.w700,
+),
                           ),
 
                           subtitle: Column(
@@ -345,11 +432,18 @@ void dispose() {
                             ],
                           ),
 
-                          trailing: const Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.white54,
-                            size: 18,
-                          ),
+                          trailing: Container(
+  padding: const EdgeInsets.all(6),
+  decoration: BoxDecoration(
+    color: Colors.white10,
+    borderRadius: BorderRadius.circular(24),
+  ),
+  child: const Icon(
+    Icons.chevron_right_rounded,
+    color: Colors.white70,
+    size: 22,
+  ),
+),
                         ),
                       ),
                     );
