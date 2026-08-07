@@ -71,38 +71,43 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF020B1D),
+  backgroundColor: const Color(0xFF020B1D),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(25),
+          padding: const EdgeInsets.symmetric(
+  horizontal: 30,
+  vertical: 40,
+),
           child: Column(
             children: [
               Image.asset(
                 "assets/images/onevest_logo.png",
-                height: 140,
+                height: 115,
               ),
 
               const SizedBox(height: 20),
 
-              const Text(
-                "Welcome Back",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+       const Text(
+  "Welcome Back",
+  style: TextStyle(
+    color: Colors.white,
+    fontSize: 34,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.3,
+  ),
+),
 
-              const SizedBox(height: 10),
+const SizedBox(height: 10),
 
-              const Text(
-                "Login to continue",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
-              ),
-
+const Text(
+  "Invest smarter. Build wealth with confidence.",
+  textAlign: TextAlign.center,
+  style: TextStyle(
+    color: Color(0xFFB7BED3),
+    fontSize: 16,
+    height: 1.5,
+  ),
+),
               const SizedBox(height: 35),
 
               TextField(
@@ -112,9 +117,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintText: "Email",
                   hintStyle: const TextStyle(color: Colors.white54),
                   prefixIcon: const Icon(
-                    Icons.email,
-                    color: Colors.tealAccent,
-                  ),
+  Icons.alternate_email_rounded,
+  color: Color(0xFF14C8B0),
+),
                   filled: true,
                   fillColor: const Color(0xFF1A2B45),
                   border: OutlineInputBorder(
@@ -133,9 +138,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintText: "Password",
                   hintStyle: const TextStyle(color: Colors.white54),
                   prefixIcon: const Icon(
-                    Icons.lock,
-                    color: Colors.tealAccent,
-                  ),
+  Icons.lock_outline_rounded,
+  color: Color(0xFF14C8B0),
+),
                   suffixIcon: IconButton(
                     icon: Icon(
                       hidePassword
@@ -164,16 +169,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ElevatedButton(
                   onPressed: isLoading ? null : login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.tealAccent,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                  ),
+  backgroundColor: const Color(0xFF14C8B0),
+  foregroundColor: Colors.white,
+  minimumSize: const Size(double.infinity, 56),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(16),
+  ),
+),
+                  
                   child: isLoading
                       ? const CircularProgressIndicator(
-                          color: Colors.black,
+                          color: Colors.white,
                         )
                       : const Text(
-                          "LOGIN",
+                          "Sign In",
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -194,10 +203,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   );
                 },
-                child: const Text(
+                child: Text(
                   "Forgot Password?",
                   style: TextStyle(
-                    color: Colors.tealAccent,
+                    color: const Color(0xFF14C8B0),
                   ),
                 ),
               ),
@@ -211,10 +220,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   );
                 },
-                child: const Text(
-                  "Create a new account",
+                child: Text(
+                  "Create Account",
                   style: TextStyle(
-                    color: Colors.tealAccent,
+                    color: const Color(0xFF14C8B0),
                     fontSize: 16,
                   ),
                 ),
