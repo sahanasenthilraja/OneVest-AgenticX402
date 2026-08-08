@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/disclaimer_card.dart';
 import 'roast_screen.dart';
 import 'financial_twin_screen.dart';
+import 'ai_coach_screen.dart';
+import 'challenges_center_screen.dart';
 
 class AiScreen extends StatefulWidget {
   const AiScreen({super.key});
@@ -194,6 +196,88 @@ class _AiScreenState extends State<AiScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => const FinancialTwinScreen(),
+          ),
+        );
+      },
+    ),
+  ),
+),
+Container(
+  margin: const EdgeInsets.fromLTRB(15, 5, 15, 10),
+  child: Card(
+    color: Colors.deepPurple,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: ListTile(
+      leading: const Icon(
+        Icons.smart_toy,
+        color: Colors.white,
+        size: 35,
+      ),
+      title: const Text(
+        "🤖 AI Investment Coach",
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      subtitle: const Text(
+        "Daily AI guidance & personalized missions",
+        style: TextStyle(
+          color: Colors.white70,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        color: Colors.white,
+      ),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AICoachScreen(),
+          ),
+        );
+      },
+    ),
+  ),
+),
+Container(
+  margin: const EdgeInsets.fromLTRB(15, 5, 15, 10),
+  child: Card(
+    color: Colors.green,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: ListTile(
+      leading: const Icon(
+        Icons.emoji_events,
+        color: Colors.white,
+        size: 35,
+      ),
+      title: const Text(
+        "🏆 Challenge Center",
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      subtitle: const Text(
+        "Earn XP, unlock badges & complete daily missions",
+        style: TextStyle(
+          color: Colors.white70,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        color: Colors.white,
+      ),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ChallengeCenterScreen(),
           ),
         );
       },
