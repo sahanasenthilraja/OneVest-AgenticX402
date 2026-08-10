@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'settings_screen.dart';
 
+import 'settings_screen.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -37,6 +37,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           isLoading = false;
         });
       }
+    } else {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -47,7 +53,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(),
+      ),
       (route) => false,
     );
   }
@@ -55,7 +63,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        backgroundColor: Color(0xFF020B1D),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
     }
 
     final name = userData?["name"] ?? "User";
@@ -79,7 +92,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const CircleAvatar(
               radius: 50,
               backgroundColor: Colors.teal,
-              child: Icon(Icons.person, color: Colors.white, size: 50),
+              child: Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 50,
+              ),
             ),
 
             const SizedBox(height: 20),
@@ -95,18 +112,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             const SizedBox(height: 10),
 
-            Text(email, style: const TextStyle(color: Colors.white70)),
+            Text(
+              email,
+              style: const TextStyle(
+                color: Colors.white70,
+              ),
+            ),
 
             const SizedBox(height: 10),
 
-            Text(phone, style: const TextStyle(color: Colors.white70)),
+            Text(
+              phone,
+              style: const TextStyle(
+                color: Colors.white70,
+              ),
+            ),
 
             const SizedBox(height: 20),
 
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(.2),
+                color: Colors.teal.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -121,11 +148,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 40),
 
             ListTile(
-              leading: const Icon(Icons.settings, color: Colors.white),
+              leading: const Icon(
+                Icons.settings,
+                color: Colors.white,
+              ),
+
               title: const Text(
                 "Settings",
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: Colors.white,
+                ),
               ),
+
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: Colors.white54,
+              ),
+
               onTap: () {
                 Navigator.push(
                   context,
@@ -137,8 +176,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text("Logout", style: TextStyle(color: Colors.red)),
+              leading: const Icon(
+                Icons.logout,
+                color: Colors.red,
+              ),
+
+              title: const Text(
+                "Logout",
+                style: TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: Colors.redAccent,
+              ),
+
               onTap: logout,
             ),
           ],
