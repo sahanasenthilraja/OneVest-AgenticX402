@@ -29,7 +29,7 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
             .collection("investments")
             .where("userId", isEqualTo: user!.uid)
             .snapshots(),
-        builder: (context, snapshot) {
+builder: (context, snapshot){
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -96,7 +96,7 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
               investmentTips[DateTime.now().day % investmentTips.length];
           String riskLevel = "Low";
           Color riskColor = Colors.green;
-
+         
           for (var doc in docs) {
             final data = doc.data() as Map<String, dynamic>;
 
@@ -365,7 +365,6 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 30),
-    
 
                 Card(
                   color: const Color(0xFF1A2B45),
@@ -549,16 +548,20 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+TransactionInsights(
+  userId: user.uid,
+),
 
-                const SizedBox(height: 30),
-                const Text(
-                  "Portfolio Performance",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+const SizedBox(height: 30),
+
+const Text(
+  "Portfolio Performance",
+  style: TextStyle(
+    color: Colors.white,
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+  ),
+),
 
                 Card(
                   color: const Color(0xFF1A2B45),
@@ -693,6 +696,310 @@ class PortfolioAnalyticsScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+Widget transactionStat(
+  String title,
+  String amount,
+  int count,
+  Color color,
+  IconData icon,
+) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 22,
+        ),
+
+        const SizedBox(height: 8),
+
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 12,
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        Text(
+          amount,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 3),
+
+        Text(
+          "$count transaction${count == 1 ? '' : 's'}",
+          style: const TextStyle(
+            color: Colors.white38,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class TransactionInsights extends StatelessWidget {
+  final String userId;
+
+  const TransactionInsights({
+    super.key,
+    required this.userId,
+  });
+
+  Future<Map<String, dynamic>> loadTransactions() async {
+    double bought = 0;
+    double sold = 0;
+    double dividends = 0;
+
+    int buyCount = 0;
+    int sellCount = 0;
+    int dividendCount = 0;
+
+    final investments = await FirebaseFirestore.instance
+        .collection("investments")
+        .where("userId", isEqualTo: userId)
+        .get();
+
+    for (final investment in investments.docs) {
+      final transactions = await FirebaseFirestore.instance
+          .collection("investments")
+          .doc(investment.id)
+          .collection("transactions")
+          .get();
+
+      for (final transaction in transactions.docs) {
+        final data = transaction.data();
+
+        final String type = data["type"] ?? "";
+
+        final double amount =
+            (data["amount"] as num?)?.toDouble() ?? 0;
+
+        if (type == "BUY") {
+          bought += amount;
+          buyCount++;
+        } else if (type == "SELL") {
+          sold += amount;
+          sellCount++;
+        } else if (type == "DIVIDEND") {
+          dividends += amount;
+          dividendCount++;
+        }
+      }
+    }
+
+    return {
+      "bought": bought,
+      "sold": sold,
+      "dividends": dividends,
+      "buyCount": buyCount,
+      "sellCount": sellCount,
+      "dividendCount": dividendCount,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: loadTransactions(),
+
+      builder: (context, snapshot) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Card(
+            color: Color(0xFF1A2B45),
+            child: Padding(
+              padding: EdgeInsets.all(25),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Colors.tealAccent,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return const Card(
+            color: Color(0xFF1A2B45),
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                "Unable to load transaction insights.",
+                style: TextStyle(
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data!;
+
+        final double bought = data["bought"];
+        final double sold = data["sold"];
+        final double dividends = data["dividends"];
+
+        final int buyCount = data["buyCount"];
+        final int sellCount = data["sellCount"];
+        final int dividendCount =
+            data["dividendCount"];
+
+        return Card(
+          color: const Color(0xFF1A2B45),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
+              children: [
+
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.receipt_long,
+                      color: Colors.tealAccent,
+                      size: 28,
+                    ),
+
+                    SizedBox(width: 10),
+
+                    Text(
+                      "Transaction Insights",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                const Text(
+                  "Your investment activity",
+                  style: TextStyle(
+                    color: Colors.white54,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+
+                    Expanded(
+                      child: transactionStat(
+                        "Bought",
+                        "₹${bought.toStringAsFixed(0)}",
+                        buyCount,
+                        Colors.greenAccent,
+                        Icons.arrow_downward,
+                      ),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: transactionStat(
+                        "Sold",
+                        "₹${sold.toStringAsFixed(0)}",
+                        sellCount,
+                        Colors.redAccent,
+                        Icons.arrow_upward,
+                      ),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: transactionStat(
+                        "Dividends",
+                        "₹${dividends.toStringAsFixed(0)}",
+                        dividendCount,
+                        Colors.amber,
+                        Icons.account_balance_wallet,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                Container(
+                  width: double.infinity,
+
+                  padding: const EdgeInsets.all(16),
+
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+
+                  child: Row(
+                    children: [
+
+                      const Icon(
+                        Icons.trending_up,
+                        color: Colors.tealAccent,
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      const Expanded(
+                        child: Text(
+                          "Net Investment",
+                          style: TextStyle(
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ),
+
+                      Text(
+                        "₹${(bought - sold).toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
