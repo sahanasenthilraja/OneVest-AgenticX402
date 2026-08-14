@@ -14,6 +14,9 @@ import {
 
 import { wrapFetchWithPayment } from "@x402-avm/fetch";
 
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+
 config();
 
 const SERVICE_URL =
@@ -26,11 +29,10 @@ if (!MNEMONIC) {
   throw new Error("Missing AGENT_MNEMONIC in .env");
 }
 
+const PORT = Number(process.env.AGENT_PORT || 4020);
+
 /*
- * Convert Algorand mnemonic → Base64 private key.
- *
- * toClientAvmSigner() expects:
- * 32-byte Ed25519 seed + 32-byte public key
+ * Convert Algorand mnemonic to Base64 private key.
  */
 function mnemonicToPrivateKeyBase64(
   mnemonic: string
@@ -48,109 +50,146 @@ function mnemonicToPrivateKeyBase64(
   return privateKey.toString("base64");
 }
 
-async function main(): Promise<void> {
-  console.log("=================================");
-  console.log("OneVest x402 Agent");
-  console.log("=================================");
+/*
+ * Create the Algorand x402 signer.
+ */
+const privateKeyBase64 =
+  mnemonicToPrivateKeyBase64(MNEMONIC);
 
-  /*
-   * Convert mnemonic → Base64 private key
-   */
-  const privateKeyBase64 =
-    mnemonicToPrivateKeyBase64(MNEMONIC!);
+const avmSigner =
+  toClientAvmSigner(privateKeyBase64);
 
-  /*
-   * Create Algorand x402 signer
-   */
-  const avmSigner =
-    toClientAvmSigner(privateKeyBase64);
+console.log("=================================");
+console.log("OneVest x402 Agent API");
+console.log("=================================");
+console.log("Agent payer:", avmSigner.address);
+console.log("x402 service:", SERVICE_URL);
+console.log("Agent API port:", PORT);
 
-  console.log("Agent payer:", avmSigner.address);
-  console.log("Target:", SERVICE_URL);
+/*
+ * Create x402 client.
+ */
+const client = new x402Client();
 
-  /*
-   * Create x402 client
-   */
-  const client = new x402Client();
+client.register(
+  ALGORAND_TESTNET_CAIP2,
+  new ExactAvmScheme(avmSigner)
+);
 
-  /*
-   * Register Algorand TestNet
-   */
-  client.register(
-    ALGORAND_TESTNET_CAIP2,
-    new ExactAvmScheme(avmSigner)
+/*
+ * Wrap fetch with automatic x402 payment handling.
+ */
+const fetchWithPayment =
+  wrapFetchWithPayment(
+    fetch,
+    client
   );
 
-  /*
-   * Wrap fetch with x402 payment handling.
-   *
-   * Flow:
-   *   Request
-   *      ↓
-   *   HTTP 402
-   *      ↓
-   *   Read payment requirements
-   *      ↓
-   *   Create Algorand USDC payment
-   *      ↓
-   *   Sign transaction
-   *      ↓
-   *   Submit payment proof
-   *      ↓
-   *   Retry request
-   *      ↓
-   *   Receive market data
-   */
-  const fetchWithPayment =
-    wrapFetchWithPayment(
-      fetch,
-      client
-    );
+/*
+ * Create HTTP API.
+ */
+const app = new Hono();
 
-  const url =
-    `${SERVICE_URL}/api/market-intelligence?symbol=AAPL`;
+/*
+ * Health endpoint.
+ */
+app.get("/health", (c) => {
+  return c.json({
+    status: "ok",
+    service: "OneVest x402 Agent",
+    network: "Algorand TestNet",
+    x402Service: SERVICE_URL,
+    payer: avmSigner.address,
+  });
+});
 
-  console.log("");
-  console.log("Requesting market intelligence...");
+/*
+ * Market intelligence endpoint.
+ *
+ * Flutter calls:
+ *
+ * GET /api/market-intelligence?symbol=AAPL
+ *
+ * The agent then:
+ *
+ * 1. Requests the paid x402 endpoint
+ * 2. Receives HTTP 402
+ * 3. Creates the Algorand USDC payment
+ * 4. Signs the transaction
+ * 5. Sends the payment proof
+ * 6. Retries the request
+ * 7. Returns the real market data
+ */
+app.get("/api/market-intelligence", async (c) => {
+  try {
+    const symbol =
+      c.req.query("symbol")?.trim().toUpperCase();
 
-  const response =
-    await fetchWithPayment(
-      url,
-      {
-        method: "GET",
-      }
-    );
+    if (!symbol) {
+      return c.json(
+        {
+          success: false,
+          error: "Missing symbol",
+          example:
+            "/api/market-intelligence?symbol=AAPL",
+        },
+        400
+      );
+    }
 
-  console.log("");
-  console.log("HTTP status:", response.status);
-
-  /*
-   * Successful paid request
-   */
-  if (response.ok) {
     console.log("");
-    console.log("Payment settled successfully.");
+    console.log("=================================");
+    console.log("Market intelligence request");
+    console.log("Symbol:", symbol);
+    console.log("=================================");
+
+    const url =
+      `${SERVICE_URL}/api/market-intelligence?symbol=${encodeURIComponent(symbol)}`;
+
+    console.log("Requesting paid service...");
+
+    const response =
+      await fetchWithPayment(
+        url,
+        {
+          method: "GET",
+        }
+      );
+
+    console.log("x402 service HTTP status:", response.status);
+
+    if (!response.ok) {
+      const body =
+        await response.text();
+
+      console.error(
+        "x402 request failed:",
+        body
+      );
+
+      return c.json(
+        {
+          success: false,
+          error: "x402 payment/request failed",
+          status: response.status,
+          details: body,
+        },
+        502
+      );
+    }
 
     /*
-     * Read x402 settlement response
+     * Read x402 settlement information.
      */
+    let payment: unknown = null;
+
     try {
-      const paymentResponse =
+      payment =
         new x402HTTPClient(client)
           .getPaymentSettleResponse(
             (name) =>
               response.headers.get(name)
           );
-
-      console.log("");
-      console.log("Payment response:");
-      console.log(
-        JSON.stringify(
-          paymentResponse,
-          null,
-          2
-        )
-      );
     } catch {
       console.log(
         "Payment settlement header was not returned."
@@ -158,43 +197,59 @@ async function main(): Promise<void> {
     }
 
     /*
-     * Read actual OneVest market data
+     * Read actual market intelligence.
      */
     const data =
       await response.json();
 
     console.log("");
-    console.log("Market intelligence:");
+    console.log("Payment settled successfully.");
+
     console.log(
-      JSON.stringify(
-        data,
-        null,
-        2
-      )
+      "Market intelligence:",
+      JSON.stringify(data, null, 2)
     );
 
-    console.log("");
-    console.log("=================================");
-    console.log("x402 PAYMENT SUCCESSFUL!");
-    console.log("=================================");
-  } else {
-    /*
-     * Payment/request failed
-     */
-    const body =
-      await response.text();
+    return c.json({
+      success: true,
+      payment,
+      data,
+    });
 
-    console.log("");
-    console.log("No payment settled.");
-    console.log("Response:");
-    console.log(body);
+  } catch (error) {
+    console.error(
+      "Agent error:",
+      error
+    );
+
+    return c.json(
+      {
+        success: false,
+        error: "Agent request failed",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+      500
+    );
   }
-}
-
-main().catch((error) => {
-  console.error("");
-  console.error("Agent error:");
-  console.error(error);
-
-  process.exit(1);
 });
+
+/*
+ * Start HTTP server.
+ */
+serve(
+  {
+    fetch: app.fetch,
+    port: PORT,
+  },
+  (info) => {
+    console.log("");
+    console.log("=================================");
+    console.log(
+      `OneVest Agent API running on http://localhost:${info.port}`
+    );
+    console.log("=================================");
+  }
+);
