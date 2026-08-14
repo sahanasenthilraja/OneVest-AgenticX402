@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 
 import 'add_investment_screen.dart';
 import 'ai_screen.dart';
+import 'ai_agent_screen.dart';
 import 'portfolio_analytics_screen.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
+
 import '../widgets/live_market_widget.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -18,49 +20,100 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final ScrollController quickActionController = ScrollController();
+  final ScrollController quickActionController =
+      ScrollController();
+
   bool showForwardArrow = true;
+
   Map<String, dynamic>? userData;
+
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    quickActionController.addListener(() {
-      if (!mounted) return;
 
-      setState(() {
-        showForwardArrow = quickActionController.offset < 100;
-        quickActionController.position.maxScrollExtent / 2;
-      });
-    });
+    quickActionController.addListener(
+      _handleQuickActionScroll,
+    );
+
     loadUser();
   }
 
-  Future<void> loadUser() async {
-    final user = FirebaseAuth.instance.currentUser;
+  // ============================================================
+  // QUICK ACTION SCROLL
+  // ============================================================
 
-    if (user == null) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+  void _handleQuickActionScroll() {
+    if (!mounted ||
+        !quickActionController.hasClients) {
       return;
     }
 
-    final doc = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .get();
-
-    if (!mounted) return;
-
     setState(() {
-      userData = doc.data();
-      isLoading = false;
+      showForwardArrow =
+          quickActionController.offset < 100;
     });
   }
+
+  // ============================================================
+  // LOAD USER
+  // ============================================================
+
+  Future<void> loadUser() async {
+    try {
+      final user =
+          FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        if (!mounted) return;
+
+        setState(() {
+          isLoading = false;
+        });
+
+        return;
+      }
+
+      final doc = await FirebaseFirestore
+          .instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      setState(() {
+        userData = doc.data();
+        isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    quickActionController.removeListener(
+      _handleQuickActionScroll,
+    );
+
+    quickActionController.dispose();
+
+    super.dispose();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -68,45 +121,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Scaffold(
         backgroundColor: Color(0xFF020B1D),
         body: Center(
-          child: CircularProgressIndicator(color: Colors.tealAccent),
+          child: CircularProgressIndicator(
+            color: Colors.tealAccent,
+          ),
         ),
       );
     }
 
-    final name = userData?["name"] ?? "User";
+    final name =
+        userData?["name"] ?? "User";
 
-    final email = userData?["email"] ?? "";
+    final email =
+        userData?["email"] ?? "";
 
-    final riskProfile = userData?["riskProfile"] ?? "Not Set";
+    final riskProfile =
+        userData?["riskProfile"] ?? "Not Set";
 
-    final portfolio = (userData?["portfolio"] ?? 0).toDouble();
+    final portfolio =
+        (userData?["portfolio"] ?? 0).toDouble();
 
-    final investment = (userData?["totalInvestment"] ?? 0).toDouble();
+    final investment =
+        (userData?["totalInvestment"] ?? 0).toDouble();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF020B1D),
+      backgroundColor:
+          const Color(0xFF020B1D),
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
 
       appBar: AppBar(
-        backgroundColor: const Color(0xFF020B1D),
+        backgroundColor:
+            const Color(0xFF020B1D),
+
         elevation: 0,
+
         title: const Text(
           "OneVest",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 25,
+          ),
         ),
+
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
+            icon: const Icon(
+              Icons.notifications_none,
+              color: Colors.white,
+            ),
+
             onPressed: () {
               // Notification feature
             },
           ),
 
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: Colors.white,
+            ),
+
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const SettingsScreen(),
+                ),
               );
             },
           ),
@@ -115,13 +199,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
 
+      // ========================================================
+      // HOME CONTENT
+      // ========================================================
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
+
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
+            // ==================================================
+            // GREETING
+            // ==================================================
+
             Text(
               "Hello, $name 👋",
+
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -131,18 +227,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 6),
 
-            Text(email, style: const TextStyle(color: Colors.white70)),
+            Text(
+              email,
+
+              style: const TextStyle(
+                color: Colors.white70,
+              ),
+            ),
 
             const SizedBox(height: 12),
 
+            // ==================================================
+            // RISK PROFILE
+            // ==================================================
+
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.teal.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(10),
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
               ),
+
+              decoration: BoxDecoration(
+                color: Colors.teal
+                    .withValues(alpha: 0.2),
+
+                borderRadius:
+                    BorderRadius.circular(10),
+              ),
+
               child: Text(
                 "Risk Profile : $riskProfile",
+
                 style: const TextStyle(
                   color: Colors.tealAccent,
                   fontWeight: FontWeight.bold,
@@ -152,29 +268,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 25),
 
+            // ==================================================
+            // PORTFOLIO SUMMARY
+            // ==================================================
+
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+
+              padding:
+                  const EdgeInsets.all(20),
+
               decoration: BoxDecoration(
                 color: Colors.blueGrey.shade800,
-                borderRadius: BorderRadius.circular(20),
+
+                borderRadius:
+                    BorderRadius.circular(20),
               ),
+
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
                 children: [
                   const Text(
                     "Portfolio Value",
-                    style: TextStyle(color: Colors.white70),
+
+                    style: TextStyle(
+                      color: Colors.white70,
+                    ),
                   ),
 
                   const SizedBox(height: 10),
 
                   Text(
                     "₹${portfolio.toStringAsFixed(2)}",
+
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 30,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
 
@@ -182,17 +315,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const Text(
                     "Total Investment",
-                    style: TextStyle(color: Colors.white70),
+
+                    style: TextStyle(
+                      color: Colors.white70,
+                    ),
                   ),
 
                   const SizedBox(height: 10),
 
                   Text(
                     "₹${investment.toStringAsFixed(2)}",
+
                     style: const TextStyle(
                       color: Colors.greenAccent,
                       fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ],
@@ -201,15 +339,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 30),
 
+            // ==================================================
+            // QUICK ACTIONS HEADER
+            // ==================================================
+
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween,
+
               children: [
                 const Text(
                   "Quick Actions",
+
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
 
@@ -218,21 +364,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     showForwardArrow
                         ? Icons.arrow_forward_ios
                         : Icons.arrow_back_ios_new,
+
                     color: Colors.white54,
+
                     size: 18,
                   ),
+
                   onPressed: () {
+                    if (!quickActionController
+                        .hasClients) {
+                      return;
+                    }
+
                     if (showForwardArrow) {
                       quickActionController.animateTo(
-                        quickActionController.position.maxScrollExtent,
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeInOut,
+                        quickActionController
+                            .position
+                            .maxScrollExtent,
+
+                        duration:
+                            const Duration(
+                          milliseconds: 350,
+                        ),
+
+                        curve:
+                            Curves.easeInOut,
                       );
                     } else {
-                      quickActionController.animateTo(
+                      quickActionController
+                          .animateTo(
                         0,
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeInOut,
+
+                        duration:
+                            const Duration(
+                          milliseconds: 350,
+                        ),
+
+                        curve:
+                            Curves.easeInOut,
                       );
                     }
                   },
@@ -242,34 +411,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 20),
 
+            // ==================================================
+            // QUICK ACTION BUTTONS
+            // ==================================================
+
             SizedBox(
               height: 110,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                controller: quickActionController,
-                children: [
-                  actionButton(context, Icons.trending_up, "Invest", () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AddInvestmentScreen(),
-                      ),
-                    );
 
-                    await loadUser();
-                  }),
+              child: ListView(
+                scrollDirection:
+                    Axis.horizontal,
+
+                controller:
+                    quickActionController,
+
+                children: [
+                  // INVEST
+                  actionButton(
+                    context,
+                    Icons.trending_up,
+                    "Invest",
+
+                    () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AddInvestmentScreen(),
+                        ),
+                      );
+
+                      await loadUser();
+                    },
+                  ),
 
                   const SizedBox(width: 24),
 
+                  // PORTFOLIO
                   actionButton(
                     context,
                     Icons.account_balance_wallet,
                     "Portfolio",
+
                     () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const PortfolioScreen(),
+                          builder: (_) =>
+                              const PortfolioScreen(),
                         ),
                       );
                     },
@@ -277,32 +466,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   const SizedBox(width: 24),
 
-                  actionButton(context, Icons.pie_chart, "Analytics", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PortfolioAnalyticsScreen(),
-                      ),
-                    );
-                  }),
+                  // ANALYTICS
+                  actionButton(
+                    context,
+                    Icons.pie_chart,
+                    "Analytics",
+
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const PortfolioAnalyticsScreen(),
+                        ),
+                      );
+                    },
+                  ),
 
                   const SizedBox(width: 24),
 
-                  actionButton(context, Icons.smart_toy, "AI", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AiScreen()),
-                    );
-                  }),
+                  // AI
+                  actionButton(
+                    context,
+                    Icons.smart_toy,
+                    "AI",
+
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const AiScreen(),
+                        ),
+                      );
+                    },
+                  ),
 
                   const SizedBox(width: 24),
 
-                  actionButton(context, Icons.person, "Profile", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  }),
+                  // PROFILE
+                  actionButton(
+                    context,
+                    Icons.person,
+                    "Profile",
+
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const ProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
 
                   const SizedBox(width: 20),
                 ],
@@ -311,6 +528,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 35),
 
+            // ==================================================
+            // LIVE MARKET ONLY
+            //
+            // IMPORTANT:
+            // x402/payment UI is NOT here.
+            // It is now inside AiAgentScreen.
+            // ==================================================
+
             const LiveMarketWidget(),
 
             const SizedBox(height: 25),
@@ -318,46 +543,148 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF1A2B45),
-        selectedItemColor: Colors.tealAccent,
-        unselectedItemColor: Colors.white60,
+      // ========================================================
+      // BOTTOM NAVIGATION
+      // ========================================================
+
+      bottomNavigationBar:
+          BottomNavigationBar(
+        backgroundColor:
+            const Color(0xFF1A2B45),
+
+        selectedItemColor:
+            Colors.tealAccent,
+
+        unselectedItemColor:
+            Colors.white60,
+
         currentIndex: 0,
-        type: BottomNavigationBarType.fixed,
+
+        type:
+            BottomNavigationBarType.fixed,
+
         onTap: (index) {
+          // ----------------------------------------------
+          // HOME
+          // ----------------------------------------------
+
+          if (index == 0) {
+            return;
+          }
+
+          // ----------------------------------------------
+          // PORTFOLIO
+          // ----------------------------------------------
+
           if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const PortfolioScreen()),
+              MaterialPageRoute(
+                builder: (_) =>
+                    const PortfolioScreen(),
+              ),
             );
+
+            return;
           }
+
+          // ----------------------------------------------
+          // AI AGENT
+          // ----------------------------------------------
 
           if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AiScreen()),
+              MaterialPageRoute(
+                builder: (_) =>
+                    const AiAgentScreen(),
+              ),
             );
+
+            return;
           }
+
+          // ----------------------------------------------
+          // EXISTING AI
+          // ----------------------------------------------
 
           if (index == 3) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              MaterialPageRoute(
+                builder: (_) =>
+                    const AiScreen(),
+              ),
             );
+
+            return;
+          }
+
+          // ----------------------------------------------
+          // PROFILE
+          // ----------------------------------------------
+
+          if (index == 4) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    const ProfileScreen(),
+              ),
+            );
+
+            return;
           }
         },
+
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          // HOME
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet),
+            icon: Icon(
+              Icons.home,
+            ),
+            label: "Home",
+          ),
+
+          // PORTFOLIO
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.account_balance_wallet,
+            ),
             label: "Portfolio",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+
+          // AI AGENT
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.smart_toy,
+            ),
+            label: "AI Agent",
+          ),
+
+          // AI
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.psychology,
+            ),
+            label: "AI",
+          ),
+
+          // PROFILE
+          BottomNavigationBarItem(
+            icon: Icon(
+              Icons.person,
+            ),
+            label: "Profile",
+          ),
         ],
       ),
     );
   }
+
+  // ============================================================
+  // QUICK ACTION BUTTON
+  // ============================================================
 
   Widget actionButton(
     BuildContext context,
@@ -367,57 +694,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) {
     return GestureDetector(
       onTap: onTap,
+
       child: SizedBox(
         width: 90,
+
         child: Column(
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: Colors.teal,
-              child: Icon(icon, color: Colors.white),
+
+              backgroundColor:
+                  Colors.teal,
+
+              child: Icon(
+                icon,
+                color: Colors.white,
+              ),
             ),
+
             const SizedBox(height: 8),
+
             Text(
               text,
-              textAlign: TextAlign.center,
+
+              textAlign:
+                  TextAlign.center,
+
               style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w500,
+                fontWeight:
+                    FontWeight.w500,
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget marketCard(IconData icon, String title, String value, Color color) {
-    return Card(
-      color: const Color(0xFF1A2B45),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.2),
-          child: Icon(icon, color: color),
-        ),
-
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        subtitle: Text(
-          value,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold),
-        ),
-
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.white54,
-          size: 18,
         ),
       ),
     );
