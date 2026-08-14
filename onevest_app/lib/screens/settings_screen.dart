@@ -27,14 +27,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         elevation: 0,
         title: const Text(
           "Settings",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        iconTheme: const IconThemeData(
-          color: Colors.white,
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
 
       body: ListView(
@@ -50,9 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: "Manage your personal information",
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Profile settings"),
-                    ),
+                    const SnackBar(content: Text("Profile settings")),
                   );
                 },
               ),
@@ -63,9 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: "Update your account password",
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Change password"),
-                    ),
+                    const SnackBar(content: Text("Change password")),
                   );
                 },
               ),
@@ -215,10 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 4),
                 const Text(
                   "Version 1.0.0",
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
                 ),
               ],
             ),
@@ -230,10 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _sectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(
-        left: 6,
-        bottom: 10,
-      ),
+      padding: const EdgeInsets.only(left: 6, bottom: 10),
       child: Text(
         title,
         style: const TextStyle(
@@ -246,20 +231,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _settingsCard({
-    required List<Widget> children,
-  }) {
+  Widget _settingsCard({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF101D32),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.06),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
@@ -270,10 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 6,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       leading: Container(
         width: 42,
         height: 42,
@@ -281,11 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: Colors.teal.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          icon,
-          color: Colors.tealAccent,
-          size: 22,
-        ),
+        child: Icon(icon, color: Colors.tealAccent, size: 22),
       ),
       title: Text(
         title,
@@ -299,16 +271,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.only(top: 4),
         child: Text(
           subtitle,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
         ),
       ),
-      trailing: const Icon(
-        Icons.chevron_right,
-        color: Colors.white38,
-      ),
+      trailing: const Icon(Icons.chevron_right, color: Colors.white38),
       onTap: onTap,
     );
   }
@@ -321,10 +287,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 6,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       leading: Container(
         width: 42,
         height: 42,
@@ -332,11 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: Colors.teal.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          icon,
-          color: Colors.tealAccent,
-          size: 22,
-        ),
+        child: Icon(icon, color: Colors.tealAccent, size: 22),
       ),
       title: Text(
         title,
@@ -350,10 +309,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.only(top: 4),
         child: Text(
           subtitle,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
         ),
       ),
       trailing: Switch(
@@ -418,11 +374,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showRiskPreferenceDialog() {
-    const options = [
-      "Conservative",
-      "Moderate",
-      "Aggressive",
-    ];
+    const options = ["Conservative", "Moderate", "Aggressive"];
 
     showDialog(
       context: context,
@@ -461,11 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showCurrencyDialog() {
-    const options = [
-      "INR (₹)",
-      "USD (\$)",
-      "EUR (€)",
-    ];
+    const options = ["INR (₹)", "USD (\$)", "EUR (€)"];
 
     showDialog(
       context: context,
@@ -518,19 +466,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           content: Text(
             message,
-            style: const TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: const TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text(
                 "OK",
-                style: TextStyle(
-                  color: Colors.tealAccent,
-                ),
+                style: TextStyle(color: Colors.tealAccent),
               ),
             ),
           ],
