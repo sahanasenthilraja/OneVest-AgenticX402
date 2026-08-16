@@ -169,51 +169,65 @@ app.use(
  * Real Market Intelligence API
  *
  * Data provider:
- * Alpha Vantage
+ * Yahoo Finance
+ *
+ * This route remains protected by the x402 paymentMiddleware
+ * configured above.
  * ============================================================
  */
 
 app.get(
   "/api/market-intelligence",
   async (c) => {
-    const symbol =
-      c.req
-        .query("symbol")
-        ?.toUpperCase() ||
-      "AAPL";
-
-    console.log(
-      `Market data requested for ${symbol}`
-    );
-
     try {
-      /*
-       * Alpha Vantage GLOBAL_QUOTE API.
-       */
+      const symbol =
+        c.req
+          .query("symbol")
+          ?.trim()
+          .toUpperCase();
+
+      if (!symbol) {
+        return c.json(
+          {
+            success: false,
+            error: "Missing symbol",
+          },
+          400
+        );
+      }
+
+      console.log("");
+      console.log("=================================");
+      console.log("Paid Market Intelligence Request");
+      console.log(`Symbol: ${symbol}`);
+      console.log("=================================");
 
       const url =
-        "https://www.alphavantage.co/query" +
-        "?function=GLOBAL_QUOTE" +
-        `&symbol=${encodeURIComponent(symbol)}` +
-        `&apikey=${encodeURIComponent(marketApiKey)}`;
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
+        "?interval=1m&range=1d";
 
       console.log(
-        `Fetching real market data for ${symbol}...`
+        `Fetching real Yahoo market data for ${symbol}...`
       );
 
       const response =
         await fetch(url);
 
+      console.log(
+        `Yahoo Finance HTTP status: ${response.status}`
+      );
+
       if (!response.ok) {
         console.error(
-          "Alpha Vantage HTTP error:",
-          response.status
+          `Yahoo Finance returned HTTP ${response.status}`
         );
 
         return c.json(
           {
+            success: false,
             error:
-              "Market data provider returned an error",
+              `Market provider returned HTTP ${response.status}`,
+            symbol,
           },
           502
         );
@@ -222,130 +236,130 @@ app.get(
       const data =
         await response.json();
 
-      /*
-       * Alpha Vantage can return an
-       * informational message when the
-       * request limit is reached.
-       */
+      const result =
+        data.chart?.result?.[0];
 
-      if (
-        data.Note ||
-        data.Information
-      ) {
+      if (!result) {
         console.error(
-          "Alpha Vantage API message:",
-          data.Note ||
-            data.Information
+          `No Yahoo market data found for ${symbol}`
         );
 
         return c.json(
           {
-            error:
-              "Market data API limit or access restriction",
-
-            provider:
-              "Alpha Vantage",
-          },
-          429
-        );
-      }
-
-      /*
-       * Extract Global Quote.
-       */
-
-      const quote =
-        data["Global Quote"];
-
-      if (
-        !quote ||
-        !quote["05. price"]
-      ) {
-        return c.json(
-          {
+            success: false,
             error:
               `No market data found for ${symbol}`,
-
             symbol,
           },
           404
         );
       }
 
-      /*
-       * Extract real market values.
-       */
+      const meta =
+        result.meta;
 
       const price =
         Number(
-          quote["05. price"]
-        );
-
-      const changePercent =
-        Number(
-          String(
-            quote["10. change percent"]
-          ).replace("%", "")
+          meta.regularMarketPrice
         );
 
       const previousClose =
         Number(
-          quote["08. previous close"]
+          meta.previousClose
         );
 
-      const volume =
-        Number(
-          quote["06. volume"]
+      if (!Number.isFinite(price)) {
+        return c.json(
+          {
+            success: false,
+            error:
+              `Invalid market price for ${symbol}`,
+            symbol,
+          },
+          502
         );
+      }
 
-      /*
-       * Return real OneVest data.
-       */
+      const validPreviousClose =
+        Number.isFinite(previousClose)
+          ? previousClose
+          : null;
+
+      const change =
+        validPreviousClose !== null
+          ? price - validPreviousClose
+          : 0;
+
+      const changePercent =
+        validPreviousClose !== null &&
+        validPreviousClose !== 0
+          ? (change / validPreviousClose) * 100
+          : 0;
+
+      const market = {
+        symbol,
+        price,
+        previousClose:
+          validPreviousClose,
+        change,
+        changePercent,
+        currency:
+          meta.currency ?? "USD",
+        exchange:
+          meta.exchangeName ??
+          meta.fullExchangeName ??
+          null,
+        instrumentType:
+          meta.instrumentType ??
+          null,
+        marketTime:
+          meta.regularMarketTime
+            ? new Date(
+                meta.regularMarketTime * 1000
+              ).toISOString()
+            : null,
+        updatedAt:
+          new Date().toISOString(),
+      };
+
+      console.log(
+        "Real market data retrieved:"
+      );
+
+      console.log(
+        JSON.stringify(
+          market,
+          null,
+          2
+        )
+      );
 
       return c.json({
+        success: true,
         service:
           "OneVest Market Intelligence",
-
-        market: {
-          symbol,
-
-          price,
-
-          currency:
-            "USD",
-
-          changePercent,
-
-          previousClose,
-
-          volume,
-
-          latestTradingDay:
-            quote[
-              "07. latest trading day"
-            ],
-
-          timestamp:
-            new Date().toISOString(),
-        },
-
+        market,
         source:
-          "Alpha Vantage",
-
+          "Yahoo Finance market data",
         message:
           "Real market intelligence successfully accessed after x402 payment.",
       });
 
     } catch (error) {
       console.error(
-        "Market data error:",
+        "Market intelligence error:",
         error
       );
 
       return c.json(
         {
+          success: false,
           error:
-            "Unable to retrieve market data",
+            "Unable to retrieve market intelligence",
+          details:
+            error instanceof Error
+              ? error.message
+              : String(error),
         },
         500
       );
@@ -1013,7 +1027,7 @@ app.get(
         "Algorand TestNet",
 
       marketDataProvider:
-        "Yahoo Finance + Alpha Vantage",
+        "Yahoo Finance",
     });
   }
 );
@@ -1080,7 +1094,7 @@ serve(
     );
 
     console.log(
-      "Market data provider: Yahoo Finance + Alpha Vantage"
+      "Market data provider: Yahoo Finance"
     );
 
     console.log(
