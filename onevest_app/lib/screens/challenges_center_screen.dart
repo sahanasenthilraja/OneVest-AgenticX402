@@ -25,7 +25,6 @@ class _ChallengeCenterScreenState
   static const Color white = Color(0xFFF5F8FC);
   static const Color muted = Color(0xFF91A0B8);
 
-  static const Color green = Color(0xFF45E38A);
   static const Color orange = Color(0xFFFFB52E);
   static const Color purple = Color(0xFFA86BFF);
 

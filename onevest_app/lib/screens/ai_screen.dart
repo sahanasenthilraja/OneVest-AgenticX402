@@ -35,7 +35,6 @@ class _AiScreenState extends State<AiScreen> {
 
   static const Color green = Color(0xFF48D36B);
   static const Color orange = Color(0xFFFFB340);
-  static const Color red = Color(0xFFFF5964);
   static const Color purple = Color(0xFF9871FF);
   static const Color blue = Color(0xFF5C8CFF);
 

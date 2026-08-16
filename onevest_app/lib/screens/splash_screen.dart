@@ -19,7 +19,6 @@ class _SplashScreenState extends State<SplashScreen>
   static const Color background = Color(0xFF020B1D);
   static const Color panel = Color(0xFF101A31);
   static const Color teal = Color(0xFF10D8C3);
-  static const Color tealDark = Color(0xFF0B3946);
   static const Color white = Color(0xFFF4F7FF);
   static const Color muted = Color(0xFF91A4C3);
 
