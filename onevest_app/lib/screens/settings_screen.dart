@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'profile_screen.dart';
@@ -27,7 +26,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   static const Color teal = Color(0xFF14C8B0);
   static const Color green = Color(0xFF45E38A);
-  static const Color red = Color(0xFFFF5A64);
   static const Color orange = Color(0xFFFFB52E);
   static const Color purple = Color(0xFFA86BFF);
 

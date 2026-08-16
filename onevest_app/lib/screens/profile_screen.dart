@@ -20,9 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   static const Color background = Color(0xFF020B1D);
   static const Color surface = Color(0xFF0A1428);
-  static const Color surface2 = Color(0xFF0F1D35);
-  static const Color surface3 = Color(0xFF142542);
-
+  
   static const Color border = Color(0xFF243B60);
 
   static const Color teal = Color(0xFF14C8B0);

@@ -278,10 +278,8 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
   List<QueryDocumentSnapshot> get docs => widget.docs;
   String get userId => widget.userId;
 
-  static const Color background = PortfolioAnalyticsScreen.background;
   static const Color surface = PortfolioAnalyticsScreen.surface;
   static const Color surface2 = PortfolioAnalyticsScreen.surface2;
-  static const Color surface3 = PortfolioAnalyticsScreen.surface3;
   static const Color border = PortfolioAnalyticsScreen.border;
 
   static const Color teal = PortfolioAnalyticsScreen.teal;
