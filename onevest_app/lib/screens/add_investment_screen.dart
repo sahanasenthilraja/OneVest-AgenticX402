@@ -1,7 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:google_fonts/google_fonts.dart';
 
 import '../services/investment_service.dart';
 
@@ -15,13 +13,18 @@ class AddInvestmentScreen extends StatefulWidget {
 
 class _AddInvestmentScreenState
     extends State<AddInvestmentScreen> {
+  // ============================================================
+  // SERVICE
+  // ============================================================
+
   final InvestmentService investmentService =
       InvestmentService();
 
-  final TextEditingController nameController =
-      TextEditingController();
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
 
-  final TextEditingController symbolController =
+  final TextEditingController nameController =
       TextEditingController();
 
   final TextEditingController quantityController =
@@ -33,435 +36,145 @@ class _AddInvestmentScreenState
   final TextEditingController dateController =
       TextEditingController();
 
-  bool isLoading = false;
-  bool isCheckingSymbol = false;
+  // ============================================================
+  // STATE
+  // ============================================================
 
-  double? checkedMarketPrice;
+  bool isLoading = false;
 
   String investmentType = "Stock";
 
-  String cryptoAsset = "Bitcoin";
+  // ============================================================
+  // COLORS
+  // ============================================================
 
-  /*
-   * ============================================================
-   * SYMBOL MAPPING
-   * ============================================================
-   */
+  static const Color background =
+      Color(0xFF020B1D);
 
-  String get automaticSymbol {
-    if (investmentType == "Gold") {
-      return "GC=F";
-    }
+  static const Color panel =
+      Color(0xFF0E1830);
 
-    if (investmentType == "Crypto") {
-      if (cryptoAsset == "Bitcoin") {
-        return "BTC-INR";
-      }
+  static const Color panelLight =
+      Color(0xFF111F36);
 
-      if (cryptoAsset == "Ethereum") {
-        return "ETH-INR";
-      }
-    }
+  static const Color fieldColor =
+      Color(0xFF16243D);
 
-    return "";
-  }
+  static const Color border =
+      Color(0xFF263A56);
 
-  /*
-   * ============================================================
-   * INPUT DECORATION
-   * ============================================================
-   */
+  static const Color teal =
+      Color(0xFF14C8B0);
+
+  static const Color secondaryText =
+      Color(0xFF8FA0BE);
+
+  static const Color mutedText =
+      Color(0xFF6D7890);
+
+  // ============================================================
+  // INPUT DECORATION
+  // ============================================================
 
   InputDecoration decoration(
-    String hint,
-    IconData icon,
-  ) {
+    String label,
+    IconData icon, {
+    String? prefixText,
+  }) {
     return InputDecoration(
-      hintText: hint,
-      hintStyle:
-          const TextStyle(color: Colors.white54),
+      labelText: label,
+
+      labelStyle: GoogleFonts.spaceMono(
+        color: secondaryText,
+        fontSize: 12,
+      ),
+
+      floatingLabelStyle:
+          GoogleFonts.spaceMono(
+        color: teal,
+        fontSize: 12,
+      ),
+
       prefixIcon: Icon(
         icon,
-        color: Colors.tealAccent,
+        color: teal,
+        size: 21,
       ),
+
+      prefixText: prefixText,
+
+      prefixStyle: GoogleFonts.spaceMono(
+        color: teal,
+        fontWeight: FontWeight.bold,
+      ),
+
       filled: true,
-      fillColor:
-          const Color(0xFF1A2B45),
-      border: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(12),
+
+      fillColor: fieldColor,
+
+      contentPadding:
+          const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 18,
       ),
+
       enabledBorder:
           OutlineInputBorder(
         borderRadius:
-            BorderRadius.circular(12),
+            BorderRadius.circular(14),
         borderSide:
             const BorderSide(
-          color: Colors.white12,
+          color: border,
         ),
       ),
+
       focusedBorder:
           OutlineInputBorder(
         borderRadius:
-            BorderRadius.circular(12),
+            BorderRadius.circular(14),
         borderSide:
             const BorderSide(
-          color: Colors.tealAccent,
-          width: 1.5,
+          color: teal,
+          width: 1.4,
         ),
+      ),
+
+      border:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(14),
       ),
     );
   }
 
-  /*
-   * ============================================================
-   * FETCH MARKET PRICE
-   * ============================================================
-   */
-
-  Future<double?> validateMarketSymbol(
-    String symbol,
-  ) async {
-    final cleanSymbol =
-        symbol.trim().toUpperCase();
-
-    if (cleanSymbol.isEmpty) {
-      return null;
-    }
-
-    try {
-      final uri = Uri.parse(
-        "http://10.0.2.2:4021/api/market-price"
-        "?symbol=${Uri.encodeComponent(cleanSymbol)}",
-      );
-
-      debugPrint(
-        "Checking market symbol: $cleanSymbol",
-      );
-
-      final response =
-          await http.get(uri);
-
-      debugPrint(
-        "Symbol validation status: "
-        "${response.statusCode}",
-      );
-
-      if (response.statusCode != 200) {
-        return null;
-      }
-
-      final data =
-          jsonDecode(response.body);
-
-      if (data["success"] != true) {
-        return null;
-      }
-
-      final price =
-          data["market"]?["price"];
-
-      if (price == null) {
-        return null;
-      }
-
-      return (price as num).toDouble();
-    } catch (e) {
-      debugPrint(
-        "Symbol validation error: $e",
-      );
-
-      return null;
-    }
-  }
-
-  /*
-   * ============================================================
-   * FORMAT LIVE PRICE
-   * ============================================================
-   */
-
-  String formatPrice(
-    String symbol,
-    double price,
-  ) {
-    if (symbol == "GC=F") {
-      return "₹${price.toStringAsFixed(2)} / 10g";
-    }
-
-    if (symbol == "BTC-INR" ||
-        symbol == "ETH-INR" ||
-        symbol.endsWith(".NS")) {
-      return "₹${price.toStringAsFixed(2)}";
-    }
-
-    return price.toStringAsFixed(2);
-  }
-
-  /*
-   * ============================================================
-   * SET AUTOMATIC SYMBOL
-   * ============================================================
-   */
-
-  void updateAutomaticSymbol() {
-    if (investmentType == "Gold" ||
-        investmentType == "Crypto") {
-      final symbol =
-          automaticSymbol;
-
-      symbolController.text =
-          symbol;
-
-      checkedMarketPrice =
-          null;
-    } else if (investmentType !=
-        "Stock") {
-      symbolController.clear();
-
-      checkedMarketPrice =
-          null;
-    }
-  }
-
-  /*
-   * ============================================================
-   * CHECK MARKET SYMBOL
-   * ============================================================
-   */
-
-  Future<void> checkSymbol() async {
-    String symbol;
-
-    if (investmentType == "Stock") {
-      symbol =
-          symbolController.text
-              .trim()
-              .toUpperCase();
-
-      if (symbol.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Enter a market symbol first.",
-            ),
-          ),
-        );
-
-        return;
-      }
-    } else if (investmentType ==
-            "Gold" ||
-        investmentType == "Crypto") {
-      symbol =
-          automaticSymbol;
-
-      symbolController.text =
-          symbol;
-    } else {
-      return;
-    }
-
-    setState(() {
-      isCheckingSymbol = true;
-      checkedMarketPrice = null;
-    });
-
-    final price =
-        await validateMarketSymbol(
-      symbol,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      isCheckingSymbol = false;
-      checkedMarketPrice = price;
-    });
-
-    if (price == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(
-          backgroundColor:
-              Colors.redAccent,
-          content: Text(
-            "Could not find $symbol. "
-            "Please try again.",
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-      SnackBar(
-        backgroundColor:
-            Colors.green,
-        content: Text(
-          "$symbol is valid. "
-          "Current price: "
-          "${formatPrice(symbol, price)}",
-        ),
-      ),
-    );
-  }
-
-  /*
-   * ============================================================
-   * SAVE INVESTMENT
-   * ============================================================
-   */
+  // ============================================================
+  // SAVE INVESTMENT
+  // ============================================================
 
   Future<void> saveInvestment() async {
-    debugPrint(
-      "SAVE BUTTON CLICKED",
-    );
+    print("SAVE BUTTON CLICKED");
 
-    /*
-     * Automatically assign symbols.
-     */
-
-    if (investmentType == "Gold" ||
-        investmentType == "Crypto") {
-      symbolController.text =
-          automaticSymbol;
-    }
-
-    /*
-     * Validate basic fields.
-     */
-
-    if (nameController.text
-            .trim()
-            .isEmpty ||
-        symbolController.text
-            .trim()
-            .isEmpty ||
-        quantityController.text
-            .trim()
-            .isEmpty ||
-        buyPriceController.text
-            .trim()
-            .isEmpty ||
-        dateController.text
-            .trim()
-            .isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        const SnackBar(
+    if (nameController.text.isEmpty ||
+        quantityController.text.isEmpty ||
+        buyPriceController.text.isEmpty ||
+        dateController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: panel,
+          behavior:
+              SnackBarBehavior.floating,
           content: Text(
             "Please fill all fields",
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    final quantity =
-        int.tryParse(
-      quantityController.text
-          .trim(),
-    );
-
-    final buyPrice =
-        double.tryParse(
-      buyPriceController.text
-          .trim(),
-    );
-
-    if (quantity == null ||
-        quantity <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Enter a valid quantity",
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    if (buyPrice == null ||
-        buyPrice <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Enter a valid buy price",
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    final symbol =
-        symbolController.text
-            .trim()
-            .toUpperCase();
-
-    /*
-     * FD does not use market data.
-     */
-
-    if (investmentType != "FD") {
-      setState(() {
-        isCheckingSymbol = true;
-        isLoading = true;
-        checkedMarketPrice = null;
-      });
-
-      final livePrice =
-          await validateMarketSymbol(
-        symbol,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        isCheckingSymbol = false;
-      });
-
-      if (livePrice == null) {
-        setState(() {
-          isLoading = false;
-        });
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(
-            backgroundColor:
-                Colors.redAccent,
-            content: Text(
-              "Could not find $symbol. "
-              "Please check the market symbol.",
+            style:
+                GoogleFonts.spaceMono(
+              color: Colors.white,
+              fontSize: 12,
             ),
           ),
-        );
+        ),
+      );
 
-        return;
-      }
-
-      checkedMarketPrice =
-          livePrice;
+      return;
     }
 
     setState(() {
@@ -469,70 +182,84 @@ class _AddInvestmentScreenState
     });
 
     try {
-      debugPrint(
-        "Saving investment...",
-      );
+      print("Calling addInvestment()");
 
-      await investmentService
-          .addInvestment(
+      // ========================================================
+      // EXISTING FIREBASE SERVICE CALL
+      // ========================================================
+
+      await investmentService.addInvestment(
         investmentName:
-            nameController.text
-                .trim(),
-
-        symbol: symbol,
+            nameController.text.trim(),
 
         investmentType:
             investmentType,
 
         quantity:
-            quantity,
+            int.parse(
+          quantityController.text.trim(),
+        ),
 
         buyPrice:
-            buyPrice,
+            double.parse(
+          buyPriceController.text.trim(),
+        ),
 
         purchaseDate:
-            dateController.text
-                .trim(),
+            dateController.text.trim(),
       );
 
-      debugPrint(
-        "Investment saved successfully",
-      );
+      print("Returned from addInvestment()");
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        const SnackBar(
-          backgroundColor:
-              Colors.green,
-          content: Text(
-            "Investment Added Successfully!",
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          backgroundColor: panel,
+          behavior:
+              SnackBarBehavior.floating,
+          content: Row(
+            children: [
+              const Icon(
+                Icons
+                    .check_circle_outline_rounded,
+                color: teal,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                "Investment added successfully",
+                style:
+                    GoogleFonts.spaceMono(
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ),
       );
 
       Navigator.pop(context);
     } catch (e) {
-      debugPrint(
-        "Investment save error: $e",
-      );
+      print("ERROR: $e");
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           backgroundColor:
-              Colors.redAccent,
+              const Color(0xFF24151A),
+          behavior:
+              SnackBarBehavior.floating,
           content: Text(
             "Error: $e",
+            style:
+                GoogleFonts.spaceMono(
+              color: Colors.white,
+              fontSize: 11,
+            ),
           ),
         ),
       );
@@ -540,667 +267,1216 @@ class _AddInvestmentScreenState
       if (mounted) {
         setState(() {
           isLoading = false;
-          isCheckingSymbol = false;
         });
       }
     }
   }
 
-  /*
-   * ============================================================
-   * BUILD
-   * ============================================================
-   */
+  // ============================================================
+  // DATE PICKER
+  // ============================================================
 
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFF020B1D),
+  Future<void> selectDate() async {
+    DateTime selectedDate =
+        DateTime.now();
 
-      appBar: AppBar(
-        backgroundColor:
-            const Color(0xFF020B1D),
-        elevation: 0,
-        title:
-            const Text("Add Investment"),
-      ),
+    final DateTime? picked =
+        await showDialog<DateTime>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor:
+              Colors.transparent,
 
-      body:
-          SingleChildScrollView(
-        padding:
-            const EdgeInsets.all(20),
+          insetPadding:
+              const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
 
-        child: Column(
-          children: [
-            const SizedBox(
-              height: 10,
-            ),
+          child: Container(
+            width: 420,
 
-            /*
-             * ==================================================
-             * INVESTMENT NAME
-             * ==================================================
-             */
+            decoration:
+                BoxDecoration(
+              color: panel,
 
-            TextField(
-              controller:
-                  nameController,
+              borderRadius:
+                  BorderRadius.circular(20),
 
-              style:
-                  const TextStyle(
-                color: Colors.white,
+              border: Border.all(
+                color: border,
               ),
 
-              decoration:
-                  decoration(
-                "Investment Name",
-                Icons.business,
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            /*
-             * ==================================================
-             * INVESTMENT TYPE
-             * ==================================================
-             */
-
-            DropdownButtonFormField<
-                String>(
-              initialValue:
-                  investmentType,
-
-              dropdownColor:
-                  const Color(
-                0xFF1A2B45,
-              ),
-
-              style:
-                  const TextStyle(
-                color: Colors.white,
-              ),
-
-              decoration:
-                  decoration(
-                "Investment Type",
-                Icons.pie_chart,
-              ),
-
-              items: const [
-                DropdownMenuItem(
-                  value: "Stock",
-                  child:
-                      Text("Stock"),
-                ),
-
-                DropdownMenuItem(
-                  value:
-                      "Mutual Fund",
-                  child:
-                      Text(
-                    "Mutual Fund",
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      Colors.black.withValues(
+                    alpha: 0.35,
                   ),
-                ),
-
-                DropdownMenuItem(
-                  value: "Gold",
-                  child:
-                      Text("Gold"),
-                ),
-
-                DropdownMenuItem(
-                  value: "Crypto",
-                  child:
-                      Text("Crypto"),
-                ),
-
-                DropdownMenuItem(
-                  value: "FD",
-                  child:
-                      Text(
-                    "Fixed Deposit",
-                  ),
+                  blurRadius: 30,
+                  offset:
+                      const Offset(0, 12),
                 ),
               ],
-
-              onChanged:
-                  (value) {
-                if (value ==
-                    null) {
-                  return;
-                }
-
-                setState(() {
-                  investmentType =
-                      value;
-
-                  checkedMarketPrice =
-                      null;
-                });
-
-                updateAutomaticSymbol();
-              },
             ),
 
-            /*
-             * ==================================================
-             * CRYPTO ASSET
-             * ==================================================
-             */
+            child:
+                StatefulBuilder(
+              builder: (
+                dialogBuildContext,
+                setDialogState,
+              ) {
+                return Column(
+                  mainAxisSize:
+                      MainAxisSize.min,
 
-            if (investmentType ==
-                "Crypto") ...[
-              const SizedBox(
-                height: 20,
-              ),
+                  children: [
+                    // ==================================================
+                    // HEADER
+                    // ==================================================
 
-              DropdownButtonFormField<
-                  String>(
-                initialValue:
-                    cryptoAsset,
+                    Container(
+                      width:
+                          double.infinity,
 
-                dropdownColor:
-                    const Color(
-                  0xFF1A2B45,
-                ),
-
-                style:
-                    const TextStyle(
-                  color: Colors.white,
-                ),
-
-                decoration:
-                    decoration(
-                  "Crypto Asset",
-                  Icons.currency_bitcoin,
-                ),
-
-                items: const [
-                  DropdownMenuItem(
-                    value:
-                        "Bitcoin",
-                    child:
-                        Text(
-                      "Bitcoin",
-                    ),
-                  ),
-
-                  DropdownMenuItem(
-                    value:
-                        "Ethereum",
-                    child:
-                        Text(
-                      "Ethereum",
-                    ),
-                  ),
-                ],
-
-                onChanged:
-                    (value) {
-                  if (value ==
-                      null) {
-                    return;
-                  }
-
-                  setState(() {
-                    cryptoAsset =
-                        value;
-
-                    checkedMarketPrice =
-                        null;
-                  });
-
-                  updateAutomaticSymbol();
-                },
-              ),
-            ],
-
-            /*
-             * ==================================================
-             * MARKET SYMBOL
-             * ==================================================
-             */
-
-            if (investmentType ==
-                    "Stock" ||
-                investmentType ==
-                    "Gold" ||
-                investmentType ==
-                    "Crypto") ...[
-              const SizedBox(
-                height: 20,
-              ),
-
-              TextField(
-                controller:
-                    symbolController,
-
-                readOnly:
-                    investmentType !=
-                        "Stock",
-
-                textCapitalization:
-                    TextCapitalization
-                        .characters,
-
-                style:
-                    const TextStyle(
-                  color: Colors.white,
-                ),
-
-                decoration:
-                    decoration(
-                  investmentType ==
-                          "Stock"
-                      ? "Market Symbol (e.g. RELIANCE.NS)"
-                      : "Market Symbol",
-                  Icons.tag,
-                ),
-              ),
-
-              if (investmentType ==
-                  "Stock") ...[
-                const SizedBox(
-                  height: 8,
-                ),
-
-                Align(
-                  alignment:
-                      Alignment.centerLeft,
-
-                  child:
-                      const Text(
-                    "Examples: RELIANCE.NS, TCS.NS, INFY.NS, HDFCBANK.NS",
-                    style:
-                        TextStyle(
-                      color:
-                          Colors.white54,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-
-              const SizedBox(
-                height: 10,
-              ),
-
-              /*
-               * CHECK MARKET SYMBOL
-               */
-
-              SizedBox(
-                width:
-                    double.infinity,
-
-                child:
-                    OutlinedButton.icon(
-                  onPressed:
-                      isCheckingSymbol
-                          ? null
-                          : checkSymbol,
-
-                  style:
-                      OutlinedButton.styleFrom(
-                    foregroundColor:
-                        Colors.tealAccent,
-
-                    side:
-                        const BorderSide(
-                      color:
-                          Colors.tealAccent,
-                    ),
-
-                    padding:
-                        const EdgeInsets.symmetric(
-                      vertical:
-                          12,
-                    ),
-
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                    ),
-                  ),
-
-                  icon:
-                      isCheckingSymbol
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth:
-                                    2,
-                                color:
-                                    Colors.tealAccent,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.search_rounded,
-                            ),
-
-                  label:
-                      Text(
-                    isCheckingSymbol
-                        ? "CHECKING..."
-                        : "CHECK MARKET PRICE",
-                  ),
-                ),
-              ),
-
-              /*
-               * LIVE PRICE
-               */
-
-              if (checkedMarketPrice !=
-                  null)
-                Container(
-                  width:
-                      double.infinity,
-
-                  margin:
-                      const EdgeInsets.only(
-                    top: 10,
-                  ),
-
-                  padding:
-                      const EdgeInsets.all(
-                    12,
-                  ),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        Colors.green
-                            .withValues(
-                      alpha: 0.10,
-                    ),
-
-                    borderRadius:
-                        BorderRadius.circular(
-                      12,
-                    ),
-
-                    border:
-                        Border.all(
-                      color:
-                          Colors.greenAccent
-                              .withValues(
-                        alpha: 0.35,
-                      ),
-                    ),
-                  ),
-
-                  child:
-                      Row(
-                    children: [
-                      const Icon(
-                        Icons
-                            .check_circle,
-                        color:
-                            Colors.greenAccent,
+                      padding:
+                          const EdgeInsets
+                              .fromLTRB(
+                        22,
+                        20,
+                        22,
+                        18,
                       ),
 
-                      const SizedBox(
-                        width: 10,
-                      ),
+                      decoration:
+                          const BoxDecoration(
+                        color: panelLight,
 
-                      Expanded(
-                        child:
-                            Text(
-                          "Live price: "
-                          "${formatPrice(symbolController.text.trim().toUpperCase(), checkedMarketPrice!)}",
-
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.greenAccent,
-                            fontWeight:
-                                FontWeight.bold,
+                        borderRadius:
+                            BorderRadius.only(
+                          topLeft:
+                              Radius.circular(
+                            20,
+                          ),
+                          topRight:
+                              Radius.circular(
+                            20,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-            ],
 
-            const SizedBox(
-              height: 20,
-            ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
 
-            /*
-             * ==================================================
-             * QUANTITY
-             * ==================================================
-             */
-
-            TextField(
-              controller:
-                  quantityController,
-
-              keyboardType:
-                  TextInputType.number,
-
-              style:
-                  const TextStyle(
-                color: Colors.white,
-              ),
-
-              decoration:
-                  decoration(
-                "Quantity",
-                Icons
-                    .format_list_numbered,
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            /*
-             * ==================================================
-             * BUY PRICE
-             * ==================================================
-             */
-
-            TextField(
-              controller:
-                  buyPriceController,
-
-              keyboardType:
-                  const TextInputType
-                      .numberWithOptions(
-                decimal: true,
-              ),
-
-              style:
-                  const TextStyle(
-                color: Colors.white,
-              ),
-
-              decoration:
-                  decoration(
-                "Buy Price",
-                Icons
-                    .currency_rupee,
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
-            /*
-             * ==================================================
-             * PURCHASE DATE
-             * ==================================================
-             */
-
-            TextField(
-              controller:
-                  dateController,
-
-              readOnly:
-                  true,
-
-              style:
-                  const TextStyle(
-                color: Colors.white,
-              ),
-
-              decoration:
-                  decoration(
-                "Purchase Date",
-                Icons.calendar_today,
-              ),
-
-              onTap:
-                  () async {
-                final picked =
-                    await showDatePicker(
-                  context:
-                      context,
-
-                  firstDate:
-                      DateTime(2020),
-
-                  lastDate:
-                      DateTime.now(),
-
-                  initialDate:
-                      DateTime.now(),
-                );
-
-                if (picked !=
-                    null) {
-                  dateController
-                          .text =
-                      "${picked.day}/"
-                      "${picked.month}/"
-                      "${picked.year}";
-                }
-              },
-            ),
-
-            const SizedBox(
-              height: 35,
-            ),
-
-            /*
-             * ==================================================
-             * SAVE
-             * ==================================================
-             */
-
-            SizedBox(
-              width:
-                  double.infinity,
-
-              child:
-                  ElevatedButton(
-                onPressed:
-                    isLoading
-                        ? null
-                        : saveInvestment,
-
-                style:
-                    ElevatedButton.styleFrom(
-                  backgroundColor:
-                      Colors.tealAccent,
-
-                  foregroundColor:
-                      Colors.black,
-
-                  padding:
-                      const EdgeInsets.symmetric(
-                    vertical:
-                        15,
-                  ),
-                ),
-
-                child:
-                    isLoading
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth:
-                                  2,
+                            decoration:
+                                BoxDecoration(
                               color:
-                                  Colors.black,
+                                  teal.withValues(
+                                alpha: 0.10,
+                              ),
+
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                12,
+                              ),
                             ),
-                          )
-                        : const Text(
-                            "SAVE INVESTMENT",
-                            style:
-                                TextStyle(
-                              fontSize:
-                                  18,
-                              fontWeight:
-                                  FontWeight.bold,
+
+                            child:
+                                const Icon(
+                              Icons
+                                  .calendar_month_rounded,
+                              color: teal,
+                              size: 22,
                             ),
                           ),
-              ),
-            ),
 
-            const SizedBox(
-              height: 20,
-            ),
+                          const SizedBox(
+                            width: 14,
+                          ),
 
-            /*
-             * ==================================================
-             * CANCEL
-             * ==================================================
-             */
+                          Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .start,
 
-            TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
+                            children: [
+                              Text(
+                                "SELECT DATE",
+
+                                style:
+                                    GoogleFonts
+                                        .pressStart2p(
+                                  color:
+                                      Colors.white,
+                                  fontSize: 10,
+                                ),
+                              ),
+
+                              const SizedBox(
+                                height: 7,
+                              ),
+
+                              Text(
+                                "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
+
+                                style:
+                                    GoogleFonts
+                                        .spaceMono(
+                                  color: teal,
+                                  fontSize: 12,
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==================================================
+                    // CALENDAR
+                    // ==================================================
+
+                    Theme(
+                      data:
+                          Theme.of(context)
+                              .copyWith(
+                        colorScheme:
+                            const ColorScheme
+                                .dark(
+                          primary: teal,
+                          onPrimary:
+                              Colors.black,
+                          surface: panel,
+                          onSurface:
+                              Colors.white,
+                        ),
+
+                        datePickerTheme:
+                            const DatePickerThemeData(
+                          backgroundColor:
+                              panel,
+
+                          surfaceTintColor:
+                              Colors.transparent,
+
+                          headerBackgroundColor:
+                              panel,
+
+                          headerForegroundColor:
+                              Colors.white,
+
+                          weekdayStyle:
+                              TextStyle(
+                            color:
+                                secondaryText,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+
+                          dayStyle:
+                              TextStyle(
+                            color:
+                                Colors.white,
+                          ),
+
+                          todayForegroundColor:
+                              WidgetStatePropertyAll(
+                            teal,
+                          ),
+
+                          todayBorder:
+                              BorderSide(
+                            color: teal,
+                          ),
+
+                          yearStyle:
+                              TextStyle(
+                            color:
+                                Colors.white,
+                          ),
+
+                          dividerColor:
+                              border,
+                        ),
+                      ),
+
+                      child:
+                          CalendarDatePicker(
+                        initialDate:
+                            selectedDate,
+
+                        firstDate:
+                            DateTime(2020),
+
+                        lastDate:
+                            DateTime.now(),
+
+                        onDateChanged:
+                            (date) {
+                          setDialogState(() {
+                            selectedDate =
+                                date;
+                          });
+                        },
+                      ),
+                    ),
+
+                    // ==================================================
+                    // BUTTONS
+                    // ==================================================
+
+                    Padding(
+                      padding:
+                          const EdgeInsets
+                              .fromLTRB(
+                        18,
+                        4,
+                        18,
+                        18,
+                      ),
+
+                      child: Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .end,
+
+                        children: [
+                          SizedBox(
+                            width: 90,
+                            height: 42,
+
+                            child:
+                                TextButton(
+                              onPressed: () {
+                                Navigator.pop(
+                                  dialogContext,
+                                );
+                              },
+
+                              style:
+                                  TextButton
+                                      .styleFrom(
+                                minimumSize:
+                                    Size.zero,
+                                padding:
+                                    EdgeInsets
+                                        .zero,
+                              ),
+
+                              child: Text(
+                                "CANCEL",
+
+                                style:
+                                    GoogleFonts
+                                        .spaceMono(
+                                  color:
+                                      secondaryText,
+                                  fontSize: 11,
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(
+                            width: 8,
+                          ),
+
+                          SizedBox(
+                            width: 105,
+                            height: 42,
+
+                            child:
+                                ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(
+                                  dialogContext,
+                                  selectedDate,
+                                );
+                              },
+
+                              style:
+                                  ElevatedButton
+                                      .styleFrom(
+                                backgroundColor:
+                                    teal,
+
+                                foregroundColor:
+                                    Colors.black,
+
+                                elevation: 0,
+
+                                minimumSize:
+                                    Size.zero,
+
+                                padding:
+                                    EdgeInsets
+                                        .zero,
+
+                                shape:
+                                    RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius
+                                          .circular(
+                                    10,
+                                  ),
+                                ),
+                              ),
+
+                              child: Text(
+                                "SELECT",
+
+                                style:
+                                    GoogleFonts
+                                        .spaceMono(
+                                  fontSize: 11,
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 );
               },
-
-              child:
-                  const Text(
-                "Cancel",
-                style:
-                    TextStyle(
-                  color:
-                      Colors.tealAccent,
-                  fontSize:
-                      16,
-                ),
-              ),
             ),
-          ],
-        ),
+          ),
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        dateController.text =
+            "${picked.day}/${picked.month}/${picked.year}";
+      });
+    }
+  }
+
+  // ============================================================
+  // FORM FIELD
+  // ============================================================
+
+  Widget formField({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    TextInputType? keyboardType,
+    String? prefixText,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
+    return TextField(
+      controller: controller,
+
+      readOnly: readOnly,
+
+      keyboardType: keyboardType,
+
+      onTap: onTap,
+
+      cursorColor: teal,
+
+      style:
+          GoogleFonts.spaceMono(
+        color: Colors.white,
+        fontSize: 13,
+      ),
+
+      decoration:
+          decoration(
+        label,
+        icon,
+        prefixText:
+            prefixText,
       ),
     );
   }
 
-  /*
-   * ============================================================
-   * DISPOSE
-   * ============================================================
-   */
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget sectionTitle(
+    String title,
+    String subtitle,
+  ) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
+      children: [
+        Container(
+          width: 4,
+          height: 40,
+
+          decoration:
+              BoxDecoration(
+            color: teal,
+
+            borderRadius:
+                BorderRadius.circular(
+              4,
+            ),
+          ),
+        ),
+
+        const SizedBox(
+          width: 12,
+        ),
+
+        Expanded(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              Text(
+                title,
+
+                style:
+                    GoogleFonts.pressStart2p(
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
+              ),
+
+              const SizedBox(
+                height: 7,
+              ),
+
+              Text(
+                subtitle,
+
+                style:
+                    GoogleFonts.spaceMono(
+                  color:
+                      secondaryText,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor:
+          background,
+
+      appBar: AppBar(
+        backgroundColor:
+            background,
+
+        elevation: 0,
+
+        scrolledUnderElevation:
+            0,
+
+        leading: IconButton(
+          icon: const Icon(
+            Icons
+                .arrow_back_ios_new_rounded,
+
+            color: Colors.white,
+
+            size: 19,
+          ),
+
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+
+        title: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: "Add ",
+                style:
+                    GoogleFonts
+                        .pressStart2p(
+                  color:
+                      Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+
+              TextSpan(
+                text: "Investment",
+                style:
+                    GoogleFonts
+                        .pressStart2p(
+                  color: teal,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+
+      body:
+          LayoutBuilder(
+        builder:
+            (context, constraints) {
+          final bool desktop =
+              constraints.maxWidth >=
+                  800;
+
+          return SingleChildScrollView(
+            padding:
+                EdgeInsets.symmetric(
+              horizontal:
+                  desktop ? 60 : 20,
+
+              vertical: 20,
+            ),
+
+            child: Center(
+              child:
+                  ConstrainedBox(
+                constraints:
+                    const BoxConstraints(
+                  maxWidth: 1050,
+                ),
+
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+
+                  children: [
+                    // ==================================================
+                    // LABEL
+                    // ==================================================
+
+                    Row(
+                      children: [
+                        Container(
+                          padding:
+                              const EdgeInsets
+                                  .symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                teal.withValues(
+                              alpha: 0.10,
+                            ),
+
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              8,
+                            ),
+
+                            border:
+                                Border.all(
+                              color:
+                                  teal.withValues(
+                                alpha: 0.25,
+                              ),
+                            ),
+                          ),
+
+                          child: Text(
+                            "INVESTMENT // CREATE",
+
+                            style:
+                                GoogleFonts
+                                    .spaceMono(
+                              color: teal,
+                              fontSize: 9,
+                              fontWeight:
+                                  FontWeight
+                                      .bold,
+                              letterSpacing:
+                                  1.2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(
+                      height: 18,
+                    ),
+
+                    // ==================================================
+                    // TITLE
+                    // ==================================================
+
+                    Text(
+                      "Create an investment",
+
+                      style:
+                          GoogleFonts
+                              .pressStart2p(
+                        color:
+                            Colors.white,
+                        fontSize:
+                            desktop
+                                ? 17
+                                : 13,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 9,
+                    ),
+
+                    Text(
+                      "Add an asset to your OneVest portfolio.",
+
+                      style:
+                          GoogleFonts
+                              .spaceMono(
+                        color:
+                            secondaryText,
+                        fontSize: 11,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 28,
+                    ),
+
+                    // ==================================================
+                    // MAIN CARD
+                    // ==================================================
+
+                    Container(
+                      width:
+                          double.infinity,
+
+                      padding:
+                          EdgeInsets.all(
+                        desktop
+                            ? 28
+                            : 20,
+                      ),
+
+                      decoration:
+                          BoxDecoration(
+                        color: panel,
+
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          22,
+                        ),
+
+                        border:
+                            Border.all(
+                          color:
+                              border,
+                        ),
+
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors
+                                .black
+                                .withValues(
+                              alpha:
+                                  0.18,
+                            ),
+
+                            blurRadius:
+                                25,
+
+                            offset:
+                                const Offset(
+                              0,
+                              10,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      child:
+                          Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+
+                        children: [
+                          // ==================================================
+                          // BASIC INFO
+                          // ==================================================
+
+                          sectionTitle(
+                            "BASIC INFORMATION",
+                            "Identity and classification of your investment",
+                          ),
+
+                          const SizedBox(
+                            height: 22,
+                          ),
+
+                          formField(
+                            label:
+                                "Investment Name",
+
+                            icon: Icons
+                                .business_rounded,
+
+                            controller:
+                                nameController,
+                          ),
+
+                          const SizedBox(
+                            height: 16,
+                          ),
+
+                          DropdownButtonFormField<
+                              String>(
+                            initialValue:
+                                investmentType,
+
+                            dropdownColor:
+                                panelLight,
+
+                            style:
+                                GoogleFonts
+                                    .spaceMono(
+                              color:
+                                  Colors
+                                      .white,
+                              fontSize:
+                                  13,
+                            ),
+
+                            icon:
+                                const Icon(
+                              Icons
+                                  .keyboard_arrow_down_rounded,
+
+                              color:
+                                  secondaryText,
+                            ),
+
+                            decoration:
+                                decoration(
+                              "Investment Type",
+
+                              Icons
+                                  .pie_chart_outline_rounded,
+                            ),
+
+                            items:
+                                const [
+                              DropdownMenuItem(
+                                value:
+                                    "Stock",
+                                child:
+                                    Text(
+                                  "Stock",
+                                ),
+                              ),
+
+                              DropdownMenuItem(
+                                value:
+                                    "Mutual Fund",
+                                child:
+                                    Text(
+                                  "Mutual Fund",
+                                ),
+                              ),
+
+                              DropdownMenuItem(
+                                value:
+                                    "Gold",
+                                child:
+                                    Text(
+                                  "Gold",
+                                ),
+                              ),
+
+                              DropdownMenuItem(
+                                value:
+                                    "Crypto",
+                                child:
+                                    Text(
+                                  "Crypto",
+                                ),
+                              ),
+
+                              DropdownMenuItem(
+                                value:
+                                    "FD",
+                                child:
+                                    Text(
+                                  "Fixed Deposit",
+                                ),
+                              ),
+                            ],
+
+                            onChanged:
+                                (value) {
+                              if (value ==
+                                  null) {
+                                return;
+                              }
+
+                              setState(
+                                () {
+                                  investmentType =
+                                      value;
+                                },
+                              );
+                            },
+                          ),
+
+                          const SizedBox(
+                            height: 30,
+                          ),
+
+                          // ==================================================
+                          // FINANCIAL INFO
+                          // ==================================================
+
+                          sectionTitle(
+                            "FINANCIAL INFORMATION",
+                            "Enter the quantity and purchase price",
+                          ),
+
+                          const SizedBox(
+                            height: 22,
+                          ),
+
+                          if (desktop)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child:
+                                      formField(
+                                    label:
+                                        "Quantity",
+
+                                    icon: Icons
+                                        .format_list_numbered_rounded,
+
+                                    controller:
+                                        quantityController,
+
+                                    keyboardType:
+                                        TextInputType
+                                            .number,
+                                  ),
+                                ),
+
+                                const SizedBox(
+                                  width: 16,
+                                ),
+
+                                Expanded(
+                                  child:
+                                      formField(
+                                    label:
+                                        "Buy Price",
+
+                                    icon: Icons
+                                        .currency_rupee_rounded,
+
+                                    controller:
+                                        buyPriceController,
+
+                                    keyboardType:
+                                        const TextInputType
+                                            .numberWithOptions(
+                                      decimal:
+                                          true,
+                                    ),
+
+                                    prefixText:
+                                        "₹ ",
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Column(
+                              children: [
+                                formField(
+                                  label:
+                                      "Quantity",
+
+                                  icon: Icons
+                                      .format_list_numbered_rounded,
+
+                                  controller:
+                                      quantityController,
+
+                                  keyboardType:
+                                      TextInputType
+                                          .number,
+                                ),
+
+                                const SizedBox(
+                                  height: 16,
+                                ),
+
+                                formField(
+                                  label:
+                                      "Buy Price",
+
+                                  icon: Icons
+                                      .currency_rupee_rounded,
+
+                                  controller:
+                                      buyPriceController,
+
+                                  keyboardType:
+                                      const TextInputType
+                                          .numberWithOptions(
+                                    decimal:
+                                        true,
+                                  ),
+
+                                  prefixText:
+                                      "₹ ",
+                                ),
+                              ],
+                            ),
+
+                          const SizedBox(
+                            height: 30,
+                          ),
+
+                          // ==================================================
+                          // PURCHASE DATE
+                          // ==================================================
+
+                          sectionTitle(
+                            "PURCHASE INFORMATION",
+                            "Select when this investment was purchased",
+                          ),
+
+                          const SizedBox(
+                            height: 22,
+                          ),
+
+                          formField(
+                            label:
+                                "Purchase Date",
+
+                            icon: Icons
+                                .calendar_month_rounded,
+
+                            controller:
+                                dateController,
+
+                            readOnly:
+                                true,
+
+                            onTap:
+                                selectDate,
+                          ),
+
+                          const SizedBox(
+                            height: 30,
+                          ),
+
+                          Container(
+                            height: 1,
+                            color: border,
+                          ),
+
+                          const SizedBox(
+                            height: 24,
+                          ),
+
+                          // ==================================================
+                          // SAVE BUTTON
+                          // ==================================================
+
+                          SizedBox(
+                            width:
+                                double.infinity,
+
+                            height: 56,
+
+                            child:
+                                MouseRegion(
+                              cursor:
+                                  isLoading
+                                      ? SystemMouseCursors
+                                          .wait
+                                      : SystemMouseCursors
+                                          .click,
+
+                              child:
+                                  ElevatedButton.icon(
+                                onPressed:
+                                    isLoading
+                                        ? null
+                                        : saveInvestment,
+
+                                style:
+                                    ElevatedButton
+                                        .styleFrom(
+                                  backgroundColor:
+                                      teal,
+
+                                  disabledBackgroundColor:
+                                      teal.withValues(
+                                    alpha:
+                                        0.35,
+                                  ),
+
+                                  foregroundColor:
+                                      Colors
+                                          .black,
+
+                                  elevation:
+                                      0,
+
+                                  shape:
+                                      RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius
+                                            .circular(
+                                      14,
+                                    ),
+                                  ),
+                                ),
+
+                                icon:
+                                    isLoading
+                                        ? const SizedBox(
+                                            width:
+                                                18,
+                                            height:
+                                                18,
+                                            child:
+                                                CircularProgressIndicator(
+                                              strokeWidth:
+                                                  2,
+
+                                              color:
+                                                  Colors
+                                                      .black,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons
+                                                .save_rounded,
+                                            size:
+                                                19,
+                                          ),
+
+                                label:
+                                    Text(
+                                  isLoading
+                                      ? "SAVING..."
+                                      : "SAVE INVESTMENT",
+
+                                  style:
+                                      GoogleFonts
+                                          .spaceMono(
+                                    fontSize:
+                                        12,
+
+                                    fontWeight:
+                                        FontWeight
+                                            .bold,
+
+                                    letterSpacing:
+                                        0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height: 12,
+                          ),
+
+                          // ==================================================
+                          // CANCEL
+                          // ==================================================
+
+                          Center(
+                            child:
+                                TextButton(
+                              onPressed:
+                                  () {
+                                Navigator.pop(
+                                  context,
+                                );
+                              },
+
+                              child:
+                                  Text(
+                                "CANCEL",
+
+                                style:
+                                    GoogleFonts
+                                        .spaceMono(
+                                  color:
+                                      secondaryText,
+
+                                  fontSize:
+                                      10,
+
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 30,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
     nameController.dispose();
-    symbolController.dispose();
     quantityController.dispose();
     buyPriceController.dispose();
     dateController.dispose();

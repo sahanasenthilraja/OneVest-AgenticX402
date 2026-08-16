@@ -1,11 +1,11 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:google_fonts/google_fonts.dart';
 
-class InvestmentDetailsScreen extends StatefulWidget {
+import 'edit_investment_screen.dart';
+import '../widgets/app_sidebar.dart';
+
+class InvestmentDetailsScreen extends StatelessWidget {
   final String investmentId;
   final Map<String, dynamic> investmentData;
 
@@ -15,43 +15,25 @@ class InvestmentDetailsScreen extends StatefulWidget {
     required this.investmentData,
   });
 
-  @override
-  State<InvestmentDetailsScreen> createState() =>
-      _InvestmentDetailsScreenState();
-}
+  // ============================================================
+  // COLORS
+  // ============================================================
 
-class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
-  double? livePrice;
-  bool isLoadingPrice = true;
-  bool isRefreshing = false;
-
-  Timer? refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-
-    fetchLivePrice();
-
-    refreshTimer = Timer.periodic(
-      const Duration(seconds: 60),
-      (_) => fetchLivePrice(),
-    );
-  }
-
-  @override
-  void dispose() {
-    refreshTimer?.cancel();
-    super.dispose();
-  }
+  static const Color background = Color(0xFF020B1D);
+  static const Color panel = Color(0xFF0E1830);
+  static const Color panelLight = Color(0xFF111F36);
+  static const Color border = Color(0xFF1E2C48);
+  static const Color teal = Color(0xFF14C8B0);
+  static const Color secondaryText = Color(0xFF8FA0BE);
+  static const Color mutedText = Color(0xFF6D7890);
+  static const Color profitColor = Color(0xFF3DDC97);
+  static const Color lossColor = Color(0xFFFF6F61);
 
   // ============================================================
-  // HELPERS
+  // HELPER
   // ============================================================
 
   double getDouble(dynamic value) {
-    if (value == null) return 0;
-
     if (value is num) {
       return value.toDouble();
     }
@@ -60,87 +42,77 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
   }
 
   // ============================================================
-  // LIVE MARKET PRICE
+  // DELETE INVESTMENT
   // ============================================================
 
-  Future<void> fetchLivePrice() async {
-    final symbol = (widget.investmentData["symbol"] ?? "")
-        .toString()
-        .trim()
-        .toUpperCase();
+  Future<void> deleteInvestment(BuildContext context) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: panel,
 
-    if (symbol.isEmpty) {
-      if (mounted) {
-        setState(() {
-          isLoadingPrice = false;
-        });
-      }
-      return;
-    }
+        title: Text(
+          "Delete Investment",
+          style: GoogleFonts.pressStart2p(
+            color: Colors.white,
+            fontSize: 12,
+          ),
+        ),
 
-    if (mounted) {
-      setState(() {
-        isRefreshing = true;
-      });
-    }
+        content: Text(
+          "Are you sure you want to delete this investment?",
+          style: GoogleFonts.spaceMono(
+            color: secondaryText,
+            fontSize: 13,
+          ),
+        ),
 
-    try {
-      final uri = Uri.parse(
-        "http://10.0.2.2:4021/api/market-price"
-        "?symbol=${Uri.encodeComponent(symbol)}",
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              "Cancel",
+              style: GoogleFonts.spaceMono(
+                color: secondaryText,
+              ),
+            ),
+          ),
+
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: lossColor,
+              foregroundColor: Colors.white,
+            ),
+
+            onPressed: () => Navigator.pop(context, true),
+
+            child: Text(
+              "Delete",
+              style: GoogleFonts.spaceMono(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await FirebaseFirestore.instance
+        .collection("investments")
+        .doc(investmentId)
+        .delete();
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Investment Deleted"),
+        ),
       );
 
-      debugPrint("Fetching live price for $symbol");
-
-      final response = await http.get(uri);
-
-      debugPrint("Market API status: ${response.statusCode}");
-
-      if (response.statusCode != 200) {
-        throw Exception("Market API returned ${response.statusCode}");
-      }
-
-      final data = jsonDecode(response.body);
-
-      if (data["success"] != true) {
-        throw Exception("Market API request failed");
-      }
-
-      final price = data["market"]?["price"];
-
-      if (price == null) {
-        throw Exception("Price unavailable");
-      }
-
-      final currentPrice = (price as num).toDouble();
-
-      if (!mounted) return;
-
-      setState(() {
-        livePrice = currentPrice;
-        isLoadingPrice = false;
-        isRefreshing = false;
-      });
-
-      debugPrint("$symbol live price = $currentPrice");
-    } catch (e) {
-      debugPrint("Live price error: $e");
-
-      if (!mounted) return;
-
-      setState(() {
-        isLoadingPrice = false;
-        isRefreshing = false;
-      });
+      Navigator.pop(context);
     }
-  }
-
-  // ============================================================
-  // CURRENT PRICE
-  // ============================================================
-
-  double get currentPrice {
-    return livePrice ?? getDouble(widget.investmentData["buyPrice"]);
   }
 
   // ============================================================
@@ -151,26 +123,31 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
     String transactionType = "BUY";
 
     final amountController = TextEditingController();
-
     final unitsController = TextEditingController();
-
     final priceController = TextEditingController();
 
     DateTime selectedDate = DateTime.now();
 
-    final added = await showDialog<bool>(
+    final bool? added = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: const Color(0xFF14253F),
+              backgroundColor: panel,
 
-              title: const Text(
-                "Add Transaction",
-                style: TextStyle(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: const BorderSide(
+                  color: border,
+                ),
+              ),
+
+              title: Text(
+                "ADD TRANSACTION",
+                style: GoogleFonts.pressStart2p(
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
               ),
 
@@ -178,26 +155,30 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Transaction type
                     DropdownButtonFormField<String>(
                       initialValue: transactionType,
 
-                      dropdownColor: const Color(0xFF1A2B45),
+                      dropdownColor: panel,
 
-                      style: const TextStyle(color: Colors.white),
+                      style: GoogleFonts.spaceMono(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
 
-                      decoration: InputDecoration(
-                        labelText: "Transaction Type",
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        filled: true,
-                        fillColor: const Color(0xFF263B57),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      decoration: _dialogInputDecoration(
+                        "Transaction Type",
                       ),
 
                       items: const [
-                        DropdownMenuItem(value: "BUY", child: Text("BUY")),
-                        DropdownMenuItem(value: "SELL", child: Text("SELL")),
+                        DropdownMenuItem(
+                          value: "BUY",
+                          child: Text("BUY"),
+                        ),
+                        DropdownMenuItem(
+                          value: "SELL",
+                          child: Text("SELL"),
+                        ),
                         DropdownMenuItem(
                           value: "DIVIDEND",
                           child: Text("DIVIDEND"),
@@ -215,98 +196,104 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
 
                     const SizedBox(height: 15),
 
+                    // Amount
                     TextField(
                       controller: amountController,
 
-                      keyboardType: const TextInputType.numberWithOptions(
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
 
-                      style: const TextStyle(color: Colors.white),
+                      style: GoogleFonts.spaceMono(
+                        color: Colors.white,
+                      ),
 
-                      decoration: InputDecoration(
-                        labelText: "Amount",
+                      cursorColor: teal,
+
+                      decoration: _dialogInputDecoration(
+                        "Amount",
                         prefixText: "₹ ",
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixStyle: const TextStyle(color: Colors.white),
-                        filled: true,
-                        fillColor: const Color(0xFF263B57),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
                     ),
 
                     const SizedBox(height: 15),
 
+                    // Units
                     TextField(
                       controller: unitsController,
 
-                      keyboardType: const TextInputType.numberWithOptions(
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
 
-                      style: const TextStyle(color: Colors.white),
+                      style: GoogleFonts.spaceMono(
+                        color: Colors.white,
+                      ),
 
-                      decoration: InputDecoration(
-                        labelText: "Units",
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        filled: true,
-                        fillColor: const Color(0xFF263B57),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      cursorColor: teal,
+
+                      decoration: _dialogInputDecoration(
+                        "Units",
                       ),
                     ),
 
                     const SizedBox(height: 15),
 
+                    // Price
                     TextField(
                       controller: priceController,
 
-                      keyboardType: const TextInputType.numberWithOptions(
+                      keyboardType:
+                          const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
 
-                      style: const TextStyle(color: Colors.white),
+                      style: GoogleFonts.spaceMono(
+                        color: Colors.white,
+                      ),
 
-                      decoration: InputDecoration(
-                        labelText: "Price per Unit",
+                      cursorColor: teal,
+
+                      decoration: _dialogInputDecoration(
+                        "Price per Unit",
                         prefixText: "₹ ",
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixStyle: const TextStyle(color: Colors.white),
-                        filled: true,
-                        fillColor: const Color(0xFF263B57),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
                     ),
 
                     const SizedBox(height: 10),
 
+                    // Date
                     ListTile(
                       contentPadding: EdgeInsets.zero,
 
                       leading: const Icon(
-                        Icons.calendar_today,
-                        color: Colors.tealAccent,
+                        Icons.calendar_today_rounded,
+                        color: teal,
                       ),
 
-                      title: const Text(
+                      title: Text(
                         "Transaction Date",
-                        style: TextStyle(color: Colors.white70),
+                        style: GoogleFonts.spaceMono(
+                          color: secondaryText,
+                          fontSize: 12,
+                        ),
                       ),
 
                       subtitle: Text(
                         "${selectedDate.day}/"
                         "${selectedDate.month}/"
                         "${selectedDate.year}",
-                        style: const TextStyle(color: Colors.white),
+                        style: GoogleFonts.spaceMono(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
 
                       onTap: () async {
-                        final picked = await showDatePicker(
+                        final DateTime? picked =
+                            await showDatePicker(
                           context: context,
                           initialDate: selectedDate,
                           firstDate: DateTime(2000),
@@ -327,22 +314,42 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(dialogContext, false);
+                    Navigator.pop(
+                      dialogContext,
+                      false,
+                    );
                   },
-                  child: const Text("Cancel"),
+
+                  child: Text(
+                    "CANCEL",
+                    style: GoogleFonts.spaceMono(
+                      color: secondaryText,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
 
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: teal,
+                    foregroundColor: const Color(0xFF04140F),
+                  ),
 
                   onPressed: () async {
-                    final amount = double.tryParse(
+                    final double? amount =
+                        double.tryParse(
                       amountController.text.trim(),
                     );
 
-                    final units = double.tryParse(unitsController.text.trim());
+                    final double? units =
+                        double.tryParse(
+                      unitsController.text.trim(),
+                    );
 
-                    final price = double.tryParse(priceController.text.trim());
+                    final double? price =
+                        double.tryParse(
+                      priceController.text.trim(),
+                    );
 
                     if (amount == null ||
                         amount <= 0 ||
@@ -350,7 +357,8 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
                         units < 0 ||
                         price == null ||
                         price < 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(
                         const SnackBar(
                           content: Text(
                             "Please enter valid transaction details.",
@@ -363,25 +371,33 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
 
                     await FirebaseFirestore.instance
                         .collection("investments")
-                        .doc(widget.investmentId)
+                        .doc(investmentId)
                         .collection("transactions")
                         .add({
-                          "type": transactionType,
-                          "amount": amount,
-                          "units": units,
-                          "price": price,
-                          "date": Timestamp.fromDate(selectedDate),
-                          "createdAt": FieldValue.serverTimestamp(),
-                        });
+                      "type": transactionType,
+                      "amount": amount,
+                      "units": units,
+                      "price": price,
+                      "date": Timestamp.fromDate(
+                        selectedDate,
+                      ),
+                      "createdAt":
+                          FieldValue.serverTimestamp(),
+                    });
 
                     if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext, true);
+                      Navigator.pop(
+                        dialogContext,
+                        true,
+                      );
                     }
                   },
 
-                  child: const Text(
+                  child: Text(
                     "ADD",
-                    style: TextStyle(color: Colors.white),
+                    style: GoogleFonts.spaceMono(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -396,10 +412,61 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
     priceController.dispose();
 
     if (added == true && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Transaction Added")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Transaction Added"),
+        ),
+      );
     }
+  }
+
+  // ============================================================
+  // DIALOG INPUT DECORATION
+  // ============================================================
+
+  InputDecoration _dialogInputDecoration(
+    String label, {
+    String? prefixText,
+  }) {
+    return InputDecoration(
+      labelText: label,
+
+      labelStyle: GoogleFonts.spaceMono(
+        color: secondaryText,
+        fontSize: 12,
+      ),
+
+      prefixText: prefixText,
+
+      prefixStyle: GoogleFonts.spaceMono(
+        color: Colors.white,
+      ),
+
+      filled: true,
+
+      fillColor: panelLight,
+
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: border,
+        ),
+      ),
+
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: border,
+        ),
+      ),
+
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: teal,
+        ),
+      ),
+    );
   }
 
   // ============================================================
@@ -410,169 +477,198 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection("investments")
-          .doc(widget.investmentId)
+          .doc(investmentId)
           .collection("transactions")
-          .orderBy("date", descending: true)
+          .orderBy(
+            "date",
+            descending: true,
+          )
           .snapshots(),
 
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.all(25),
+
             child: Center(
-              child: CircularProgressIndicator(color: Colors.tealAccent),
+              child: CircularProgressIndicator(
+                color: teal,
+              ),
             ),
           );
         }
 
         if (snapshot.hasError) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A2B45),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Text(
-              "Unable to load transaction history.",
-              style: TextStyle(color: Colors.white70),
-            ),
+          return _emptyStateCard(
+            icon: Icons.error_outline_rounded,
+            title: "Unable to load transaction history.",
+            subtitle: "Please try again later.",
           );
         }
 
-        final transactions = snapshot.data?.docs ?? [];
+        final transactions =
+            snapshot.data?.docs ?? [];
 
         if (transactions.isEmpty) {
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A2B45),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Column(
-              children: [
-                Icon(Icons.receipt_long, color: Colors.white54, size: 42),
-                SizedBox(height: 10),
-                Text(
-                  "No transactions yet",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  "Add your first transaction.",
-                  style: TextStyle(color: Colors.white54),
-                ),
-              ],
-            ),
+          return _emptyStateCard(
+            icon: Icons.receipt_long_rounded,
+            title: "No transactions yet",
+            subtitle: "Add your first transaction.",
           );
         }
 
         return Column(
           children: transactions.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
+            final data =
+                doc.data() as Map<String, dynamic>;
 
-            final type = data["type"] ?? "BUY";
+            final String type =
+                data["type"] ?? "BUY";
 
-            final amount = getDouble(data["amount"]);
+            final double amount =
+                getDouble(data["amount"]);
 
-            final units = getDouble(data["units"]);
+            final double units =
+                getDouble(data["units"]);
 
-            final price = getDouble(data["price"]);
+            final double price =
+                getDouble(data["price"]);
 
-            final timestamp = data["date"] as Timestamp?;
+            final Timestamp? timestamp =
+                data["date"] as Timestamp?;
 
-            final date = timestamp?.toDate();
+            final DateTime? date =
+                timestamp?.toDate();
 
             Color color;
             IconData icon;
 
             if (type == "BUY") {
-              color = Colors.greenAccent;
-              icon = Icons.arrow_downward;
+              color = profitColor;
+              icon = Icons.arrow_downward_rounded;
             } else if (type == "SELL") {
-              color = Colors.redAccent;
-              icon = Icons.arrow_upward;
+              color = lossColor;
+              icon = Icons.arrow_upward_rounded;
             } else {
               color = Colors.amber;
-              icon = Icons.account_balance_wallet;
+              icon =
+                  Icons.account_balance_wallet_rounded;
             }
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
 
-              padding: const EdgeInsets.all(14),
+              child: AnimatedContainer(
+                duration:
+                    const Duration(milliseconds: 150),
 
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2B45),
-                borderRadius: BorderRadius.circular(16),
-              ),
+                margin:
+                    const EdgeInsets.only(bottom: 10),
 
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 23,
-                    backgroundColor: color.withValues(alpha: 0.15),
-                    child: Icon(icon, color: color),
+                padding:
+                    const EdgeInsets.all(16),
+
+                decoration: BoxDecoration(
+                  color: panel,
+
+                  borderRadius:
+                      BorderRadius.circular(16),
+
+                  border: Border.all(
+                    color: border,
                   ),
+                ),
 
-                  const SizedBox(width: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
 
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          type,
-                          style: TextStyle(
-                            color: color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                      decoration: BoxDecoration(
+                        color:
+                            color.withValues(
+                          alpha: 0.12,
                         ),
 
-                        const SizedBox(height: 5),
+                        borderRadius:
+                            BorderRadius.circular(12),
+                      ),
 
-                        Text(
-                          date == null
-                              ? "Date unavailable"
-                              : "${date.day}/"
-                                    "${date.month}/"
-                                    "${date.year}",
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 13,
-                          ),
-                        ),
+                      alignment: Alignment.center,
 
-                        const SizedBox(height: 4),
-
-                        Text(
-                          "Units: "
-                          "${units.toStringAsFixed(2)}"
-                          "  •  ₹"
-                          "${price.toStringAsFixed(2)} / unit",
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                      child: Icon(
+                        icon,
+                        color: color,
+                        size: 21,
+                      ),
                     ),
-                  ),
 
-                  Text(
-                    "₹${amount.toStringAsFixed(2)}",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+
+                        children: [
+                          Text(
+                            type,
+                            style:
+                                GoogleFonts.pressStart2p(
+                              color: color,
+                              fontSize: 9,
+                            ),
+                          ),
+
+                          const SizedBox(height: 7),
+
+                          Text(
+                            date == null
+                                ? "Date unavailable"
+                                : "${date.day}/"
+                                  "${date.month}/"
+                                  "${date.year}",
+                            style:
+                                GoogleFonts.spaceMono(
+                              color: secondaryText,
+                              fontSize: 11,
+                            ),
+                          ),
+
+                          const SizedBox(height: 5),
+
+                          Text(
+                            "Units: "
+                            "${units.toStringAsFixed(2)}"
+                            "  •  ₹"
+                            "${price.toStringAsFixed(2)} / unit",
+
+                            style:
+                                GoogleFonts.spaceMono(
+                              color: mutedText,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(width: 12),
+
+                    Text(
+                      "₹${amount.toStringAsFixed(2)}",
+
+                      style:
+                          GoogleFonts.spaceMono(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }).toList(),
@@ -582,153 +678,62 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
   }
 
   // ============================================================
-  // INVESTMENT SUMMARY
+  // EMPTY STATE
   // ============================================================
 
-  Widget investmentSummaryCard() {
-    final quantity = getDouble(widget.investmentData["quantity"]);
-
-    final buyPrice = getDouble(widget.investmentData["buyPrice"]);
-
-    final current = currentPrice;
-
-    final invested = quantity * buyPrice;
-
-    final currentValue = quantity * current;
-
-    final profit = currentValue - invested;
-
-    final returnPercentage = invested == 0 ? 0 : (profit / invested) * 100;
-
-    final isProfit = profit >= 0;
-
+  Widget _emptyStateCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 35,
+      ),
 
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF163B59), Color(0xFF1A2B45)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: panel,
+
+        borderRadius:
+            BorderRadius.circular(18),
+
+        border: Border.all(
+          color: border,
         ),
-
-        borderRadius: BorderRadius.circular(22),
-
-        border: Border.all(color: Colors.white10),
       ),
 
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
-          Text(
-            widget.investmentData["investmentName"]?.toString() ?? "Investment",
+          Icon(
+            icon,
+            color: mutedText,
+            size: 42,
+          ),
 
-            style: const TextStyle(
+          const SizedBox(height: 14),
+
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.spaceMono(
               color: Colors.white,
-              fontSize: 24,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
 
-          const SizedBox(height: 5),
+          const SizedBox(height: 7),
 
           Text(
-            widget.investmentData["investmentType"]?.toString() ?? "",
-
-            style: const TextStyle(color: Colors.white60, fontSize: 15),
-          ),
-
-          if ((widget.investmentData["symbol"] ?? "").toString().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                "Symbol: ${widget.investmentData["symbol"]}",
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
+            subtitle,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.spaceMono(
+              color: mutedText,
+              fontSize: 13,
             ),
-
-          const SizedBox(height: 25),
-
-          Row(
-            children: [
-              Expanded(
-                child: summaryItem(
-                  "Invested",
-                  "₹${invested.toStringAsFixed(2)}",
-                ),
-              ),
-
-              Expanded(
-                child: summaryItem(
-                  "Current Value",
-                  "₹${currentValue.toStringAsFixed(2)}",
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 22),
-
-          Container(height: 1, color: Colors.white12),
-
-          const SizedBox(height: 20),
-
-          Row(
-            children: [
-              Expanded(
-                child: summaryItem(
-                  "Profit",
-                  "${isProfit ? '+' : '-'}"
-                      "₹${profit.abs().toStringAsFixed(2)}",
-                  valueColor: isProfit ? Colors.greenAccent : Colors.redAccent,
-                ),
-              ),
-
-              Expanded(
-                child: summaryItem(
-                  "Return",
-                  "${isProfit ? '+' : '-'}"
-                      "${returnPercentage.abs().toStringAsFixed(2)}%",
-                  valueColor: isProfit ? Colors.greenAccent : Colors.redAccent,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-
-          Row(
-            children: [
-              Icon(
-                Icons.circle,
-                size: 9,
-                color: livePrice != null
-                    ? Colors.greenAccent
-                    : Colors.orangeAccent,
-              ),
-
-              const SizedBox(width: 7),
-
-              Text(
-                livePrice != null ? "Live market price" : "Using buy price",
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-
-              const Spacer(),
-
-              if (isRefreshing)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.tealAccent,
-                  ),
-                ),
-            ],
           ),
         ],
       ),
@@ -736,34 +741,420 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
   }
 
   // ============================================================
-  // SUMMARY ITEM
+  // INVESTMENT SUMMARY
   // ============================================================
 
-  Widget summaryItem(
-    String title,
-    String value, {
+  Widget investmentSummaryCard() {
+    final double quantity =
+        getDouble(investmentData["quantity"]);
+
+    final double buyPrice =
+        getDouble(investmentData["buyPrice"]);
+
+    final double currentValue =
+        getDouble(
+      investmentData["currentValue"],
+    );
+
+    final double invested =
+        quantity * buyPrice;
+
+    final double profit =
+        currentValue - invested;
+
+    final double returnPercentage =
+        invested == 0
+            ? 0
+            : (profit / invested) * 100;
+
+    final bool isProfit =
+        profit >= 0;
+
+    final String investmentName =
+        investmentData["investmentName"]
+                ?.toString() ??
+            "Investment";
+
+    final String investmentType =
+        investmentData["investmentType"]
+                ?.toString() ??
+            "";
+
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(30),
+
+      decoration: BoxDecoration(
+        color: panel,
+
+        borderRadius:
+            BorderRadius.circular(22),
+
+        border: Border.all(
+          color: border,
+        ),
+      ),
+
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          // --------------------------------------------------------
+          // TOP IDENTITY
+          // --------------------------------------------------------
+
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+
+                decoration: BoxDecoration(
+                  color:
+                      teal.withValues(alpha: 0.12),
+
+                  borderRadius:
+                      BorderRadius.circular(15),
+                ),
+
+                alignment: Alignment.center,
+
+                child: const Icon(
+                  Icons.show_chart_rounded,
+                  color: teal,
+                  size: 27,
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      investmentName,
+
+                      style:
+                          GoogleFonts.pressStart2p(
+                        color: Colors.white,
+                        fontSize: 19,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+
+                      decoration: BoxDecoration(
+                        color:
+                            teal.withValues(
+                          alpha: 0.10,
+                        ),
+
+                        borderRadius:
+                            BorderRadius.circular(7),
+                      ),
+
+                      child: Text(
+                        investmentType
+                            .toUpperCase(),
+
+                        style:
+                            GoogleFonts.spaceMono(
+                          color: teal,
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          // --------------------------------------------------------
+          // CURRENT VALUE
+          // --------------------------------------------------------
+
+          Text(
+            "CURRENT VALUE",
+            style: GoogleFonts.spaceMono(
+              color: secondaryText,
+              fontSize: 12,
+              letterSpacing: 1.5,
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.end,
+
+            children: [
+              Expanded(
+                child: Text(
+                  "₹${currentValue.toStringAsFixed(2)}",
+
+                  style:
+                      GoogleFonts.spaceMono(
+                    color: Colors.white,
+                    fontSize: 42,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+
+                decoration: BoxDecoration(
+                  color: (isProfit
+                          ? profitColor
+                          : lossColor)
+                      .withValues(
+                    alpha: 0.12,
+                  ),
+
+                  borderRadius:
+                      BorderRadius.circular(9),
+                ),
+
+                child: Text(
+                  "${isProfit ? "+" : ""}"
+                  "${returnPercentage.toStringAsFixed(2)}%",
+
+                  style:
+                      GoogleFonts.spaceMono(
+                    color: isProfit
+                        ? profitColor
+                        : lossColor,
+                    fontSize: 15,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 25),
+
+          Container(
+            height: 1,
+            color: border,
+          ),
+
+          const SizedBox(height: 20),
+
+          // --------------------------------------------------------
+          // KEY METRICS
+          // --------------------------------------------------------
+
+          LayoutBuilder(
+            builder:
+                (context, constraints) {
+              final bool compact =
+                  constraints.maxWidth < 550;
+
+              if (compact) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _metricCard(
+                            "INVESTED",
+                            "₹${invested.toStringAsFixed(2)}",
+                            Icons.savings_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _metricCard(
+                            "QUANTITY",
+                            quantity
+                                .toStringAsFixed(0),
+                            Icons.layers_outlined,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _metricCard(
+                            isProfit
+                                ? "PROFIT"
+                                : "LOSS",
+                            "${isProfit ? "+" : "-"}₹${profit.abs().toStringAsFixed(2)}",
+                            isProfit
+                                ? Icons.trending_up_rounded
+                                : Icons.trending_down_rounded,
+                            valueColor: isProfit
+                                ? profitColor
+                                : lossColor,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _metricCard(
+                            "RETURN",
+                            "${isProfit ? "+" : ""}${returnPercentage.toStringAsFixed(2)}%",
+                            Icons.percent_rounded,
+                            valueColor: isProfit
+                                ? profitColor
+                                : lossColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: _metricCard(
+                      "INVESTED",
+                      "₹${invested.toStringAsFixed(2)}",
+                      Icons.savings_outlined,
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: _metricCard(
+                      "QUANTITY",
+                      quantity.toStringAsFixed(0),
+                      Icons.layers_outlined,
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: _metricCard(
+                      isProfit
+                          ? "PROFIT"
+                          : "LOSS",
+                      "${isProfit ? "+" : "-"}₹${profit.abs().toStringAsFixed(2)}",
+                      isProfit
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      valueColor: isProfit
+                          ? profitColor
+                          : lossColor,
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: _metricCard(
+                      "RETURN",
+                      "${isProfit ? "+" : ""}${returnPercentage.toStringAsFixed(2)}%",
+                      Icons.percent_rounded,
+                      valueColor: isProfit
+                          ? profitColor
+                          : lossColor,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // METRIC CARD
+  // ============================================================
+
+  Widget _metricCard(
+    String label,
+    String value,
+    IconData icon, {
     Color valueColor = Colors.white,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding:
+          const EdgeInsets.all(16),
 
-      children: [
-        Text(
-          title,
-          style: const TextStyle(color: Colors.white60, fontSize: 13),
+      decoration: BoxDecoration(
+        color: panelLight,
+
+        borderRadius:
+            BorderRadius.circular(13),
+
+        border: Border.all(
+          color: border,
         ),
+      ),
 
-        const SizedBox(height: 6),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
 
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        children: [
+          Icon(
+            icon,
+            color: teal,
+            size: 22,
           ),
-        ),
-      ],
+
+          const SizedBox(height: 10),
+
+          Text(
+            label,
+            style: GoogleFonts.spaceMono(
+              color: secondaryText,
+              fontSize: 11,
+              letterSpacing: 0.9,
+            ),
+          ),
+
+          const SizedBox(height: 5),
+
+          Text(
+            value,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.spaceMono(
+              color: valueColor,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -771,32 +1162,83 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
   // INFORMATION ROW
   // ============================================================
 
-  Widget informationRow(String title, String value) {
+  Widget informationCard(
+    String title,
+    String value,
+    IconData icon,
+  ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 13,
+      ),
 
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2B45),
-        borderRadius: BorderRadius.circular(14),
+        color: panel,
+
+        borderRadius:
+            BorderRadius.circular(15),
+
+        border: Border.all(
+          color: border,
+        ),
       ),
 
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(color: Colors.white60, fontSize: 14),
+          Container(
+            width: 46,
+            height: 46,
+
+            decoration: BoxDecoration(
+              color:
+                  teal.withValues(alpha: 0.10),
+
+              borderRadius:
+                  BorderRadius.circular(10),
+            ),
+
+            alignment: Alignment.center,
+
+            child: Icon(
+              icon,
+              color: teal,
+              size: 23,
             ),
           ),
 
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: GoogleFonts.spaceMono(
+                    color: secondaryText,
+                    fontSize: 11,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  value,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      GoogleFonts.spaceMono(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -805,294 +1247,95 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
   }
 
   // ============================================================
-  // DELETE INVESTMENT
+  // ACTION BUTTON
   // ============================================================
 
-  Future<void> deleteInvestment(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF14253F),
+  Widget _actionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+    required bool primary,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
 
-          title: const Text(
-            "Delete Investment?",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
+      child: SizedBox(
+        height: 50,
 
-          content: const Text(
-            "This will permanently delete this investment and its transaction history.",
-            style: TextStyle(color: Colors.white70),
-          ),
+        child: primary
+            ? ElevatedButton.icon(
+                onPressed: onPressed,
 
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text("Cancel"),
-            ),
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor: teal,
+                  foregroundColor:
+                      const Color(0xFF04140F),
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-              ),
+                  elevation: 0,
 
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-
-              child: const Text(
-                "Delete",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    try {
-      final investmentRef = FirebaseFirestore.instance
-          .collection("investments")
-          .doc(widget.investmentId);
-
-      final transactions = await investmentRef.collection("transactions").get();
-
-      for (final doc in transactions.docs) {
-        await doc.reference.delete();
-      }
-
-      await investmentRef.delete();
-
-      if (!context.mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Investment deleted")));
-
-      Navigator.pop(context);
-    } catch (e) {
-      if (!context.mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
-    }
-  }
-
-  // ============================================================
-  // EDIT INVESTMENT
-  // ============================================================
-
-  Future<void> editInvestment(BuildContext context) async {
-    final nameController = TextEditingController(
-      text: widget.investmentData["investmentName"]?.toString() ?? "",
-    );
-
-    final symbolController = TextEditingController(
-      text: widget.investmentData["symbol"]?.toString() ?? "",
-    );
-
-    final quantityController = TextEditingController(
-      text: getDouble(widget.investmentData["quantity"]).toStringAsFixed(0),
-    );
-
-    final buyPriceController = TextEditingController(
-      text: getDouble(widget.investmentData["buyPrice"]).toString(),
-    );
-
-    String type =
-        widget.investmentData["investmentType"]?.toString() ?? "Stock";
-
-    final edited = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF14253F),
-
-              title: const Text(
-                "Edit Investment",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _editField(nameController, "Investment Name"),
-
-                    const SizedBox(height: 12),
-
-                    _editField(symbolController, "Market Symbol"),
-
-                    const SizedBox(height: 12),
-
-                    DropdownButtonFormField<String>(
-                      initialValue: type,
-
-                      dropdownColor: const Color(0xFF1A2B45),
-
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: _editDecoration("Investment Type"),
-
-                      items: const [
-                        DropdownMenuItem(value: "Stock", child: Text("Stock")),
-                        DropdownMenuItem(
-                          value: "Mutual Fund",
-                          child: Text("Mutual Fund"),
-                        ),
-                        DropdownMenuItem(value: "Gold", child: Text("Gold")),
-                        DropdownMenuItem(
-                          value: "Crypto",
-                          child: Text("Crypto"),
-                        ),
-                        DropdownMenuItem(
-                          value: "FD",
-                          child: Text("Fixed Deposit"),
-                        ),
-                      ],
-
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() {
-                            type = value;
-                          });
-                        }
-                      },
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      13,
                     ),
-
-                    const SizedBox(height: 12),
-
-                    _editField(quantityController, "Quantity", numeric: true),
-
-                    const SizedBox(height: 12),
-
-                    _editField(buyPriceController, "Buy Price", numeric: true),
-                  ],
-                ),
-              ),
-
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext, false);
-                  },
-                  child: const Text("Cancel"),
-                ),
-
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-
-                  onPressed: () async {
-                    final quantity = int.tryParse(
-                      quantityController.text.trim(),
-                    );
-
-                    final buyPrice = double.tryParse(
-                      buyPriceController.text.trim(),
-                    );
-
-                    if (nameController.text.trim().isEmpty ||
-                        symbolController.text.trim().isEmpty ||
-                        quantity == null ||
-                        quantity <= 0 ||
-                        buyPrice == null ||
-                        buyPrice <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Enter valid investment details."),
-                        ),
-                      );
-
-                      return;
-                    }
-
-                    await FirebaseFirestore.instance
-                        .collection("investments")
-                        .doc(widget.investmentId)
-                        .update({
-                          "investmentName": nameController.text.trim(),
-
-                          "symbol": symbolController.text.trim().toUpperCase(),
-
-                          "investmentType": type,
-
-                          "quantity": quantity,
-
-                          "buyPrice": buyPrice,
-                        });
-
-                    if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext, true);
-                    }
-                  },
-
-                  child: const Text(
-                    "SAVE",
-                    style: TextStyle(color: Colors.white),
                   ),
                 ),
-              ],
-            );
-          },
-        );
-      },
-    );
 
-    nameController.dispose();
-    symbolController.dispose();
-    quantityController.dispose();
-    buyPriceController.dispose();
+                icon: Icon(
+                  icon,
+                  size: 19,
+                ),
 
-    if (edited == true && mounted) {
-      Navigator.pop(context);
-    }
-  }
+                label: Text(
+                  label,
+                  style:
+                      GoogleFonts.spaceMono(
+                    fontSize: 13,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              )
+            : OutlinedButton.icon(
+                onPressed: onPressed,
 
-  InputDecoration _editDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      filled: true,
-      fillColor: const Color(0xFF263B57),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    );
-  }
+                style:
+                    OutlinedButton.styleFrom(
+                  foregroundColor:
+                      lossColor,
 
-  Widget _editField(
-    TextEditingController controller,
-    String label, {
-    bool numeric = false,
-  }) {
-    return TextField(
-      controller: controller,
+                  side:
+                      const BorderSide(
+                    color: lossColor,
+                  ),
 
-      keyboardType: numeric
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : TextInputType.text,
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      13,
+                    ),
+                  ),
+                ),
 
-      textCapitalization: label == "Market Symbol"
-          ? TextCapitalization.characters
-          : TextCapitalization.sentences,
+                icon: Icon(
+                  icon,
+                  size: 19,
+                ),
 
-      style: const TextStyle(color: Colors.white),
-
-      decoration: _editDecoration(label),
+                label: Text(
+                  label,
+                  style:
+                      GoogleFonts.spaceMono(
+                    fontSize: 13,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              ),
+      ),
     );
   }
 
@@ -1102,198 +1345,451 @@ class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final symbol = (widget.investmentData["symbol"] ?? "")
-        .toString()
-        .trim()
-        .toUpperCase();
-
-    final buyPrice = getDouble(widget.investmentData["buyPrice"]);
-
     return Scaffold(
-      backgroundColor: const Color(0xFF020B1D),
+      backgroundColor: background,
 
       appBar: AppBar(
-        backgroundColor: const Color(0xFF020B1D),
+        backgroundColor: background,
         elevation: 0,
+        scrolledUnderElevation: 0,
 
-        title: const Text(
-          "Investment Details",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: Colors.white,
+          ),
+
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
 
-        actions: [
-          IconButton(
-            onPressed: isRefreshing ? null : fetchLivePrice,
-            icon: isRefreshing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.tealAccent,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded, color: Colors.tealAccent),
+        title: Text(
+          "Investment Details",
+          style: GoogleFonts.pressStart2p(
+            color: Colors.white,
+            fontSize: 16,
           ),
-        ],
+        ),
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final bool isDesktop =
+              constraints.maxWidth >= 900;
+final Widget content =
+    _buildContent(
+  context: context,
+  isDesktop: isDesktop,
+);
 
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          if (isDesktop) {
+            return Row(
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
 
-          children: [
-            // ==================================================
-            // SUMMARY
-            // ==================================================
-            investmentSummaryCard(),
-
-            const SizedBox(height: 25),
-
-            // ==================================================
-            // INFORMATION
-            // ==================================================
-            const Text(
-              "Investment Information",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            informationRow("Symbol", symbol.isEmpty ? "Not available" : symbol),
-
-            informationRow(
-              "Quantity",
-              widget.investmentData["quantity"]?.toString() ?? "0",
-            ),
-
-            informationRow("Buy Price", "₹${buyPrice.toStringAsFixed(2)}"),
-
-            informationRow(
-              "Current Price",
-              livePrice == null
-                  ? "Loading..."
-                  : "₹${currentPrice.toStringAsFixed(2)}",
-            ),
-
-            informationRow(
-              "Purchase Date",
-              widget.investmentData["purchaseDate"]?.toString() ?? "",
-            ),
-
-            const SizedBox(height: 25),
-
-            // ==================================================
-            // TRANSACTION HISTORY
-            // ==================================================
-            Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    "📜 Transaction History",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                const AppSidebar(
+                  current: SidebarItem.portfolio,
                 ),
 
-                TextButton.icon(
-                  onPressed: () {
-                    addTransaction(context);
-                  },
-
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.tealAccent,
-                  ),
-
-                  icon: const Icon(Icons.add, size: 20),
-
-                  label: const Text(
-                    "Add",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                Expanded(
+                  child: content,
                 ),
               ],
-            ),
+            );
+          }
 
-            const SizedBox(height: 10),
+          return content;
+        },
+      ),
+    );
+  }
 
-            transactionHistory(),
+  // ============================================================
+  // MAIN CONTENT
+  // ============================================================
 
-            const SizedBox(height: 30),
+  Widget _buildContent({
+  required BuildContext context,
+  required bool isDesktop,
+}) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 28 : 16,
+        vertical: 16,
+      ),
 
-            // ==================================================
-            // EDIT
-            // ==================================================
-            SizedBox(
-              width: double.infinity,
+      child: Center(
+        child: ConstrainedBox(
+          constraints:
+              const BoxConstraints(
+            maxWidth: 1450,
+          ),
 
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  editInvestment(context);
-                },
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
 
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
+            children: [
+              // --------------------------------------------------
+              // TOP LABEL
+              // --------------------------------------------------
 
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+              Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
 
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    decoration:
+                        const BoxDecoration(
+                      color: teal,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
 
-                icon: const Icon(Icons.edit),
+                  const SizedBox(width: 8),
 
-                label: const Text(
-                  "EDIT INVESTMENT",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ==================================================
-            // DELETE
-            // ==================================================
-            SizedBox(
-              width: double.infinity,
-
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  deleteInvestment(context);
-                },
-
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-
-                  side: const BorderSide(color: Colors.redAccent),
-
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                  Text(
+                    "INVESTMENT // DETAILS",
+                    style:
+                        GoogleFonts.spaceMono(
+                      color: teal,
+                      fontSize: 10,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-
-                icon: const Icon(Icons.delete_outline),
-
-                label: const Text(
-                  "DELETE INVESTMENT",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
+                ],
               ),
-            ),
-          ],
+
+              const SizedBox(height: 14),
+
+              // --------------------------------------------------
+              // HERO
+              // --------------------------------------------------
+
+              investmentSummaryCard(),
+
+              const SizedBox(height: 30),
+
+              // --------------------------------------------------
+              // INVESTMENT INFORMATION
+              // --------------------------------------------------
+
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 22,
+
+                    decoration:
+                        BoxDecoration(
+                      color: teal,
+                      borderRadius:
+                          BorderRadius.circular(
+                        4,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Text(
+                    "Investment Information",
+                    style:
+                        GoogleFonts.pressStart2p(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 15),
+
+              LayoutBuilder(
+                builder:
+                    (context, constraints) {
+                  final bool twoColumns =
+                      constraints.maxWidth >=
+                          600;
+
+                  final cards = [
+                    informationCard(
+                      "Quantity",
+                      investmentData[
+                                  "quantity"]
+                              ?.toString() ??
+                          "0",
+                      Icons.layers_outlined,
+                    ),
+
+                    informationCard(
+                      "Buy Price",
+                      "₹${investmentData["buyPrice"] ?? 0}",
+                      Icons.shopping_cart_outlined,
+                    ),
+
+                    informationCard(
+                      "Current Price",
+                      "₹${investmentData["currentPrice"] ?? investmentData["buyPrice"] ?? 0}",
+                      Icons.show_chart_rounded,
+                    ),
+
+                    informationCard(
+                      "Purchase Date",
+                      investmentData[
+                                  "purchaseDate"]
+                              ?.toString() ??
+                          "",
+                      Icons.calendar_today_outlined,
+                    ),
+                  ];
+
+                  if (!twoColumns) {
+                    return Column(
+                      children: cards
+                          .map(
+                            (card) => Padding(
+                              padding:
+                                  const EdgeInsets
+                                      .only(
+                                bottom: 10,
+                              ),
+                              child: SizedBox(
+                                width:
+                                    double.infinity,
+                                child: card,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  }
+
+                  return GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 4.6,
+                    shrinkWrap: true,
+                    physics:
+                        const NeverScrollableScrollPhysics(),
+                    children: cards,
+                  );
+                },
+              ),
+
+              const SizedBox(height: 30),
+
+              // --------------------------------------------------
+              // TRANSACTION HEADER
+              // --------------------------------------------------
+
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 22,
+
+                    decoration:
+                        BoxDecoration(
+                      color: teal,
+                      borderRadius:
+                          BorderRadius.circular(
+                        4,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: Text(
+                      "Transaction History",
+                      style:
+                          GoogleFonts.pressStart2p(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+
+                  MouseRegion(
+                    cursor:
+                        SystemMouseCursors.click,
+
+                    child: TextButton.icon(
+                      onPressed: () {
+                        addTransaction(context);
+                      },
+
+                      style:
+                          TextButton.styleFrom(
+                        foregroundColor: teal,
+                      ),
+
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        size: 18,
+                      ),
+
+                      label: Text(
+                        "ADD",
+                        style:
+                            GoogleFonts.spaceMono(
+                          fontSize: 11,
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              transactionHistory(),
+
+              const SizedBox(height: 30),
+
+              // --------------------------------------------------
+              // ACTIONS
+              // --------------------------------------------------
+
+              LayoutBuilder(
+                builder:
+                    (context, constraints) {
+                  final bool stacked =
+                      constraints.maxWidth <
+                          600;
+
+                  if (stacked) {
+                    return Column(
+                      children: [
+                        SizedBox(
+                          width:
+                              double.infinity,
+                          child:
+                              _actionButton(
+                            label:
+                                "EDIT INVESTMENT",
+                            icon:
+                                Icons.edit_rounded,
+                            primary: true,
+                            onPressed:
+                                () async {
+                              await Navigator
+                                  .push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EditInvestmentScreen(
+                                    investmentId:
+                                        investmentId,
+                                    investmentData:
+                                        investmentData,
+                                  ),
+                                ),
+                              );
+
+                              if (context
+                                  .mounted) {
+                                Navigator.pop(
+                                    context);
+                              }
+                            },
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 10,
+                        ),
+
+                        SizedBox(
+                          width:
+                              double.infinity,
+                          child:
+                              _actionButton(
+                            label:
+                                "DELETE INVESTMENT",
+                            icon:
+                                Icons
+                                    .delete_outline_rounded,
+                            primary: false,
+                            onPressed: () {
+                              deleteInvestment(
+                                  context);
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child:
+                            _actionButton(
+                          label:
+                              "EDIT INVESTMENT",
+                          icon:
+                              Icons.edit_rounded,
+                          primary: true,
+                          onPressed:
+                              () async {
+                            await Navigator
+                                .push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    EditInvestmentScreen(
+                                  investmentId:
+                                      investmentId,
+                                  investmentData:
+                                      investmentData,
+                                ),
+                              ),
+                            );
+
+                            if (context
+                                .mounted) {
+                              Navigator.pop(
+                                  context);
+                            }
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(
+                        width: 12,
+                      ),
+
+                      Expanded(
+                        child:
+                            _actionButton(
+                          label:
+                              "DELETE INVESTMENT",
+                          icon: Icons
+                              .delete_outline_rounded,
+                          primary: false,
+                          onPressed: () {
+                            deleteInvestment(
+                                context);
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 25),
+            ],
+          ),
         ),
       ),
     );

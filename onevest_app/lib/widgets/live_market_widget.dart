@@ -1,295 +1,167 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:google_fonts/google_fonts.dart';
 
 class LiveMarketWidget extends StatefulWidget {
   const LiveMarketWidget({super.key});
 
   @override
-  State<LiveMarketWidget> createState() => _LiveMarketWidgetState();
+  State<LiveMarketWidget> createState() =>
+      _LiveMarketWidgetState();
 }
 
-class _LiveMarketWidgetState extends State<LiveMarketWidget> {
-  static const String apiUrl =
-      'http://10.0.2.2:4021/api/live-market';
+class _LiveMarketWidgetState
+    extends State<LiveMarketWidget> {
+  final Random random = Random();
 
-  Timer? _timer;
+  late Timer timer;
 
-  bool _loading = true;
-  bool _hasError = false;
-
-  String _errorMessage = '';
-
-  DateTime? _lastUpdated;
-
-  final Map<String, double> _prices = {};
-  final Map<String, double> _changes = {};
-  final Map<String, String> _currencies = {};
+  double nifty = 25120.80;
+  double sensex = 82450.10;
+  double gold = 10250;
+  double bitcoin = 9654321;
+  double ethereum = 287450;
 
   @override
   void initState() {
     super.initState();
 
-    _fetchMarketData();
+    timer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) {
+        if (!mounted) return;
 
-    // Update automatically every 60 seconds.
-    _timer = Timer.periodic(
-      const Duration(seconds: 60),
-      (_) => _fetchMarketData(),
+        setState(() {
+          nifty += random.nextDouble() * 20 - 10;
+          sensex += random.nextDouble() * 30 - 15;
+          gold += random.nextDouble() * 8 - 4;
+          bitcoin += random.nextDouble() * 10000 - 5000;
+          ethereum += random.nextDouble() * 500 - 250;
+        });
+      },
     );
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    timer.cancel();
     super.dispose();
-  }
-
-  Future<void> _fetchMarketData() async {
-    try {
-      final response = await http
-          .get(Uri.parse(apiUrl))
-          .timeout(
-            const Duration(seconds: 10),
-          );
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Server returned HTTP ${response.statusCode}',
-        );
-      }
-
-      final Map<String, dynamic> json =
-          jsonDecode(response.body);
-
-      if (json['success'] != true) {
-        throw Exception(
-          json['error']?.toString() ??
-              'Market data request failed',
-        );
-      }
-
-      final List<dynamic> markets =
-          json['markets'] as List<dynamic>? ?? [];
-
-      final newPrices = <String, double>{};
-      final newChanges = <String, double>{};
-      final newCurrencies = <String, String>{};
-
-      for (final item in markets) {
-        final market =
-            item as Map<String, dynamic>;
-
-        final name =
-            market['name']?.toString();
-
-        final price =
-            (market['price'] as num?)?.toDouble();
-
-        final change =
-            (market['changePercent'] as num?)
-                ?.toDouble();
-
-        final currency =
-            market['currency']?.toString() ?? '';
-
-        if (name == null || price == null) {
-          continue;
-        }
-
-        newPrices[name] = price;
-
-        if (change != null) {
-          newChanges[name] = change;
-        }
-
-        newCurrencies[name] = currency;
-      }
-
-      if (newPrices.isEmpty) {
-        throw Exception(
-          'No market data received',
-        );
-      }
-
-      if (!mounted) return;
-
-      setState(() {
-        _prices
-          ..clear()
-          ..addAll(newPrices);
-
-        _changes
-          ..clear()
-          ..addAll(newChanges);
-
-        _currencies
-          ..clear()
-          ..addAll(newCurrencies);
-
-        _lastUpdated = DateTime.now();
-
-        _loading = false;
-        _hasError = false;
-        _errorMessage = '';
-      });
-    } catch (error) {
-      debugPrint(
-        'Live market error: $error',
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _hasError = true;
-        _errorMessage =
-            'Unable to update market data';
-      });
-    }
-  }
-
-  double? _price(String name) {
-    return _prices[name];
-  }
-
-  double? _change(String name) {
-    return _changes[name];
-  }
-
-String _formatPrice(
-  String name,
-  double? value,
-) {
-  if (value == null) {
-    return '--';
-  }
-
-  // NIFTY 50 and SENSEX are index values.
-  // Do not add a currency symbol.
-  if (name == 'NIFTY 50' ||
-      name == 'SENSEX') {
-    return value.toStringAsFixed(2);
-  }
-
-  final currency = _currencies[name] ?? '';
-
-  if (currency == 'INR') {
-    return '₹${value.toStringAsFixed(2)}';
-  }
-
-  if (currency == 'USD') {
-    return '\$${value.toStringAsFixed(2)}';
-  }
-
-  return value.toStringAsFixed(2);
-}
-
-  String _formatChange(double? value) {
-    if (value == null) {
-      return '--';
-    }
-
-    final sign = value >= 0 ? '+' : '';
-
-    return '$sign${value.toStringAsFixed(2)}%';
-  }
-
-  Color _changeColor(double? value) {
-    if (value == null) {
-      return Colors.white70;
-    }
-
-    if (value >= 0) {
-      return Colors.greenAccent;
-    }
-
-    return Colors.redAccent;
-  }
-
-  String _formatUpdatedTime() {
-    if (_lastUpdated == null) {
-      return 'Updating...';
-    }
-
-    final time = _lastUpdated!;
-
-    final hour =
-        time.hour.toString().padLeft(2, '0');
-
-    final minute =
-        time.minute.toString().padLeft(2, '0');
-
-    final second =
-        time.second.toString().padLeft(2, '0');
-
-    return 'Updated $hour:$minute:$second';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFF1A2B45),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
+    return Container(
+      width: double.infinity,
+
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1830),
+
+        borderRadius:
+            BorderRadius.circular(14),
+
+        border: Border.all(
+          color: const Color(0xFF243758),
+          width: 1,
+        ),
       ),
+
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          18,
+          18,
+          18,
+          10,
+        ),
+
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
+
           children: [
+            // ==================================================
+            // HEADER
+            // ==================================================
+
             Row(
               children: [
+                // Pixel-style graph icon
                 const Icon(
-                  Icons.show_chart,
-                  color: Colors.greenAccent,
+                  Icons.show_chart_rounded,
+                  color: Color(0xFF14C8B0),
+                  size: 21,
                 ),
 
                 const SizedBox(width: 10),
 
-                const Text(
-                  'Live Market',
-                  style: TextStyle(
+                Text(
+                  "Live Market",
+                  style:
+                      GoogleFonts.pressStart2p(
                     color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
                   ),
                 ),
 
                 const Spacer(),
 
+                // LIVE indicator
                 Container(
                   padding:
                       const EdgeInsets.symmetric(
                     horizontal: 10,
-                    vertical: 5,
+                    vertical: 7,
                   ),
-                  decoration: BoxDecoration(
-                    color: _hasError
-                        ? Colors.orange
-                        : Colors.green,
+
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        const Color(0xFF14C8B0)
+                            .withValues(
+                      alpha: 0.12,
+                    ),
+
                     borderRadius:
-                        BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.circle,
-                        color: Colors.white,
-                        size: 10,
+                        BorderRadius.circular(6),
+
+                    border: Border.all(
+                      color:
+                          const Color(0xFF14C8B0)
+                              .withValues(
+                        alpha: 0.35,
                       ),
-                      const SizedBox(width: 5),
+                    ),
+                  ),
+
+                  child: Row(
+                    mainAxisSize:
+                        MainAxisSize.min,
+
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration:
+                            const BoxDecoration(
+                          color:
+                              Color(0xFF14C8B0),
+                          shape:
+                              BoxShape.circle,
+                        ),
+                      ),
+
+                      const SizedBox(width: 6),
+
                       Text(
-                        _hasError
-                            ? 'ERROR'
-                            : 'LIVE',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight:
-                              FontWeight.bold,
+                        "LIVE",
+                        style:
+                            GoogleFonts.pressStart2p(
+                          color:
+                              const Color(
+                            0xFF14C8B0,
+                          ),
+                          fontSize: 7,
                         ),
                       ),
                     ],
@@ -298,216 +170,171 @@ String _formatPrice(
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-            Text(
-              _formatUpdatedTime(),
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
-              ),
+            // ==================================================
+            // MARKET ITEMS
+            // ==================================================
+
+            _marketTile(
+              "NIFTY 50",
+              nifty.toStringAsFixed(2),
+              "+0.82%",
+              const Color(0xFF4CAF50),
             ),
 
-            const SizedBox(height: 20),
+            _marketTile(
+              "SENSEX",
+              sensex.toStringAsFixed(2),
+              "+0.65%",
+              const Color(0xFF4CAF50),
+            ),
 
-            if (_loading)
-              const Center(
-                child: Padding(
-                  padding:
-                      EdgeInsets.all(20),
-                  child:
-                      CircularProgressIndicator(),
-                ),
-              )
-            else if (_hasError &&
-                _prices.isEmpty)
-              _buildError()
-            else ...[
-              marketTile(
-                'NIFTY 50',
-                _formatPrice(
-                  'NIFTY 50',
-                  _price('NIFTY 50'),
-                ),
-                _formatChange(
-                  _change('NIFTY 50'),
-                ),
-                _changeColor(
-                  _change('NIFTY 50'),
-                ),
-              ),
+            _marketTile(
+              "Gold",
+              "₹${gold.toStringAsFixed(0)} / 10g",
+              "+0.30%",
+              const Color(0xFFFFA000),
+            ),
 
-              marketTile(
-                'SENSEX',
-                _formatPrice(
-                  'SENSEX',
-                  _price('SENSEX'),
-                ),
-                _formatChange(
-                  _change('SENSEX'),
-                ),
-                _changeColor(
-                  _change('SENSEX'),
-                ),
-              ),
+            _marketTile(
+              "Bitcoin",
+              "₹${bitcoin.toStringAsFixed(0)}",
+              "+2.10%",
+              const Color(0xFF4CAF50),
+            ),
 
-              marketTile(
-                'Gold',
-                _formatPrice(
-                  'Gold',
-                  _price('Gold'),
-                ),
-                _formatChange(
-                  _change('Gold'),
-                ),
-                Colors.orange,
-              ),
-
-              marketTile(
-                'Bitcoin',
-                _formatPrice(
-                  'Bitcoin',
-                  _price('Bitcoin'),
-                ),
-                _formatChange(
-                  _change('Bitcoin'),
-                ),
-                _changeColor(
-                  _change('Bitcoin'),
-                ),
-              ),
-
-              marketTile(
-                'Ethereum',
-                _formatPrice(
-                  'Ethereum',
-                  _price('Ethereum'),
-                ),
-                _formatChange(
-                  _change('Ethereum'),
-                ),
-                _changeColor(
-                  _change('Ethereum'),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 8),
-
-            if (!_loading)
-              Align(
-                alignment:
-                    Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: _fetchMarketData,
-                  icon: const Icon(
-                    Icons.refresh,
-                    size: 18,
-                  ),
-                  label: const Text(
-                    'Refresh',
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor:
-                        Colors.greenAccent,
-                  ),
-                ),
-              ),
+            _marketTile(
+              "Ethereum",
+              "₹${ethereum.toStringAsFixed(0)}",
+              "-0.75%",
+              const Color(0xFFFF4D4D),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildError() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(
-          alpha: 0.10,
-        ),
-        borderRadius:
-            BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.redAccent.withValues(
-            alpha: 0.30,
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.cloud_off,
-            color: Colors.redAccent,
-            size: 32,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Market data unavailable',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _errorMessage,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          TextButton(
-            onPressed: _fetchMarketData,
-            child: const Text(
-              'Try Again',
-              style: TextStyle(
-                color: Colors.greenAccent,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ==========================================================
+  // MARKET TILE
+  // ==========================================================
 
-  static Widget marketTile(
+  Widget _marketTile(
     String name,
     String price,
     String change,
-    Color color,
+    Color changeColor,
   ) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: color,
-        child: const Icon(
-          Icons.trending_up,
-          color: Colors.white,
-        ),
+    final bool negative =
+        change.startsWith("-");
+
+    return Container(
+      margin:
+          const EdgeInsets.only(bottom: 4),
+
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 10,
+        horizontal: 2,
       ),
-      title: Text(
-        name,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      subtitle: Text(
-        price,
-        style: const TextStyle(
-          color: Colors.white70,
-        ),
-      ),
-      trailing: Text(
-        change,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
+
+      child: Row(
+        children: [
+          // ==================================================
+          // PIXEL MARKET ICON
+          // ==================================================
+
+          Container(
+            width: 40,
+            height: 40,
+
+            decoration:
+                BoxDecoration(
+              color: changeColor.withValues(
+                alpha: 0.14,
+              ),
+
+              borderRadius:
+                  BorderRadius.circular(8),
+
+              border: Border.all(
+                color:
+                    changeColor.withValues(
+                  alpha: 0.30,
+                ),
+              ),
+            ),
+
+            child: Icon(
+              negative
+                  ? Icons.trending_down_rounded
+                  : Icons.trending_up_rounded,
+
+              color: changeColor,
+
+              size: 20,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // ==================================================
+          // NAME + PRICE
+          // ==================================================
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
+              children: [
+                Text(
+                  name,
+
+                  style:
+                      GoogleFonts.spaceMono(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight:
+                        FontWeight.w700,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  price,
+
+                  style:
+                      GoogleFonts.spaceMono(
+                    color:
+                        const Color(
+                      0xFF8A96AA,
+                    ),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ==================================================
+          // CHANGE
+          // ==================================================
+
+          Text(
+            change,
+
+            style:
+                GoogleFonts.spaceMono(
+              color: changeColor,
+              fontSize: 11,
+              fontWeight:
+                  FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

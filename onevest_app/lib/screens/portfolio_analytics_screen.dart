@@ -1,762 +1,2172 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../models/performance_data.dart';
 import '../services/ai_recommendation_service.dart';
+import '../widgets/app_sidebar.dart';
+import 'add_investment_screen.dart';
+import 'portfolio_screen.dart';
+// ============================================================
+// FONT HELPERS — shared across this file so every label/value
+// uses the same Press Start 2P / Space Mono pairing as the
+// rest of the app instead of the system default.
+// ============================================================
+
+TextStyle _heading(
+  double size, {
+  Color color = PortfolioAnalyticsScreen.white,
+  FontWeight weight = FontWeight.w700,
+  double? spacing,
+  double? height,
+}) {
+  return GoogleFonts.pressStart2p(
+    fontSize: size,
+    color: color,
+    fontWeight: weight,
+    letterSpacing: spacing,
+    height: height,
+  );
+}
+
+TextStyle _mono(
+  double size, {
+  Color color = PortfolioAnalyticsScreen.white,
+  FontWeight weight = FontWeight.normal,
+  double? spacing,
+  double? height,
+}) {
+  return GoogleFonts.spaceMono(
+    fontSize: size,
+    color: color,
+    fontWeight: weight,
+    letterSpacing: spacing,
+    height: height,
+  );
+}
 
 class PortfolioAnalyticsScreen extends StatelessWidget {
   const PortfolioAnalyticsScreen({super.key});
+
+  // ============================================================
+  // ONEVEST THEME
+  // ============================================================
+
+  static const Color background = Color(0xFF020B1D);
+  static const Color surface = Color(0xFF0A1428);
+  static const Color surface2 = Color(0xFF0F1D35);
+  static const Color surface3 = Color(0xFF142542);
+
+  static const Color border = Color(0xFF243B60);
+
+  static const Color teal = Color(0xFF14C8B0);
+  static const Color tealDark = Color(0xFF0C8F82);
+
+  static const Color white = Color(0xFFF5F8FC);
+  static const Color muted = Color(0xFF91A0B8);
+
+  static const Color green = Color(0xFF45E38A);
+  static const Color red = Color(0xFFFF5A64);
+  static const Color orange = Color(0xFFFFB52E);
+  static const Color blue = Color(0xFF4E8CFF);
+  static const Color purple = Color(0xFFA86BFF);
+
+  // ============================================================
+  // SAFE NUMBER HELPERS
+  // ============================================================
+
+  static double safeDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value is String) {
+      return double.tryParse(value) ?? 0;
+    }
+
+    return 0;
+  }
+
+  static int safeInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+
+    if (value is String) {
+      return int.tryParse(value) ?? 0;
+    }
+
+    return 0;
+  }
+
+  // ============================================================
+  // MAIN
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF020B1D),
+    if (user == null) {
+      return Scaffold(
+        backgroundColor: background,
+        body: Center(
+          child: Text(
+            'Please sign in again.',
+            style: _mono(20, color: white),
+          ),
+        ),
+      );
+    }
 
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF020B1D),
-        elevation: 0,
-        title: const Text(
-          "Portfolio Analytics",
-          style: TextStyle(fontWeight: FontWeight.bold),
+    return Scaffold(
+      backgroundColor: background,
+      body: Row(
+        children: [
+          const AppSidebar(current: SidebarItem.analytics),
+          Expanded(
+            child: SafeArea(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('investments')
+                    .where(
+                      'userId',
+                      isEqualTo: user.uid,
+                    )
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: teal,
+                        strokeWidth: 3,
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return _errorState();
+                  }
+
+                  final docs = snapshot.data?.docs ?? [];
+
+                  if (docs.isEmpty) {
+                    return _emptyState();
+                  }
+
+                  return _AnalyticsBody(
+                    docs: docs,
+                    userId: user.uid,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  Widget _errorState() {
+    return Center(
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(35),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: red,
+              size: 58,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Unable to Load Analytics',
+              style: _mono(20, color: white, weight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Please try again.',
+              style: _mono(14, color: muted),
+            ),
+          ],
         ),
       ),
-
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection("investments")
-            .where("userId", isEqualTo: user!.uid)
-            .snapshots(),
-builder: (context, snapshot){
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text(
-                "No Investments Found",
-                style: TextStyle(color: Colors.white, fontSize: 18),
-              ),
-            );
-          }
-
-          final docs = snapshot.data!.docs;
-          final List<PerformanceData> performanceData = [];
-
-          double runningValue = 0;
-
-          for (int i = 0; i < docs.length; i++) {
-            final data = docs[i].data() as Map<String, dynamic>;
-
-            final currentValue = (data["currentValue"] as num).toDouble();
-
-            runningValue += currentValue;
-
-            performanceData.add(
-              PerformanceData(
-                date: DateTime.now().subtract(Duration(days: docs.length - i)),
-                value: runningValue,
-              ),
-            );
-          }
-
-          Map<String, double> portfolio = {
-            "Stock": 0,
-            "Mutual Fund": 0,
-            "Gold": 0,
-            "Crypto": 0,
-            "FD": 0,
-          };
-
-          double totalValue = 0;
-          // Goal Tracking
-          const double goalAmount = 1000000; // ₹10 Lakhs
-
-          double progress = 0;
-          int healthScore = 100;
-
-          String healthStatus = "Excellent";
-
-          List<String> suggestions = [];
-          const List<String> investmentTips = [
-            "Diversify your investments to reduce overall risk.",
-            "Review your portfolio every quarter.",
-            "Invest consistently through SIPs for long-term wealth creation.",
-            "Avoid investing all your money in a single asset.",
-            "Keep an emergency fund before making high-risk investments.",
-            "Long-term investing generally performs better than frequent trading.",
-            "Monitor market trends but avoid emotional decisions.",
-            "Gold can act as a hedge against inflation.",
-          ];
-
-          final String tipOfTheDay =
-              investmentTips[DateTime.now().day % investmentTips.length];
-          String riskLevel = "Low";
-          Color riskColor = Colors.green;
-         
-          for (var doc in docs) {
-            final data = doc.data() as Map<String, dynamic>;
-
-            double buyPrice = (data["buyPrice"] as num).toDouble();
-
-            double currentPrice = data.containsKey("currentPrice")
-                ? (data["currentPrice"] as num).toDouble()
-                : buyPrice;
-
-            int quantity = (data["quantity"] as num).toInt();
-
-            double value = currentPrice * quantity;
-
-            totalValue += value;
-
-            portfolio[data["investmentType"]] =
-                (portfolio[data["investmentType"]] ?? 0) + value;
-          }
-          progress = totalValue / goalAmount;
-
-          if (progress > 1) {
-            progress = 1;
-          }
-
-          final recommendations = AIRecommendationService.getRecommendations(
-            portfolio,
-          );
-
-          final colors = [
-            Colors.blue,
-            Colors.green,
-            Colors.orange,
-            Colors.red,
-            Colors.purple,
-          ];
-
-          int colorIndex = 0;
-
-          final sections = portfolio.entries.where((e) => e.value > 0).map((
-            entry,
-          ) {
-            final section = PieChartSectionData(
-              value: entry.value,
-              color: colors[colorIndex % colors.length],
-              title: "${(entry.value / totalValue * 100).toStringAsFixed(0)}%",
-              radius: 90,
-              titleStyle: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            );
-
-            colorIndex++;
-
-            return section;
-          }).toList();
-          // Portfolio Health Calculation
-
-          int assetTypes = portfolio.entries.where((e) => e.value > 0).length;
-
-          // Diversification
-          if (assetTypes >= 4) {
-            suggestions.add("✔ Well diversified portfolio");
-          } else if (assetTypes == 3) {
-            healthScore -= 10;
-            suggestions.add("• Add one more investment type");
-          } else if (assetTypes == 2) {
-            healthScore -= 20;
-            suggestions.add("• Diversify across more asset classes");
-          } else {
-            healthScore -= 35;
-            suggestions.add("• Portfolio is highly concentrated");
-          }
-
-          // Crypto %
-          double cryptoPercent = totalValue == 0
-              ? 0
-              : (portfolio["Crypto"]! / totalValue) * 100;
-
-          if (cryptoPercent > 20) {
-            healthScore -= 15;
-            suggestions.add("• Reduce Crypto exposure");
-          }
-
-          // Gold %
-          double goldPercent = totalValue == 0
-              ? 0
-              : (portfolio["Gold"]! / totalValue) * 100;
-
-          if (goldPercent < 5) {
-            healthScore -= 10;
-            suggestions.add("• Consider adding Gold");
-          }
-
-          // Mutual Fund %
-          double mfPercent = totalValue == 0
-              ? 0
-              : (portfolio["Mutual Fund"]! / totalValue) * 100;
-
-          if (mfPercent >= 30) {
-            suggestions.add("✔ Good Mutual Fund allocation");
-          } else {
-            healthScore -= 10;
-            suggestions.add("• Increase Mutual Fund allocation");
-          }
-
-          // Final Status
-          if (healthScore >= 85) {
-            healthStatus = "Excellent";
-          } else if (healthScore >= 70) {
-            healthStatus = "Good";
-          } else if (healthScore >= 50) {
-            healthStatus = "Average";
-          } else {
-            healthStatus = "Needs Improvement";
-          }
-          // Risk Level
-          if (healthScore >= 85) {
-            riskLevel = "Low";
-            riskColor = Colors.green;
-          } else if (healthScore >= 70) {
-            riskLevel = "Medium";
-            riskColor = Colors.orange;
-          } else {
-            riskLevel = "High";
-            riskColor = Colors.red;
-          }
-          colorIndex = 0;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Card(
-                  color: const Color(0xFF1A2B45),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Text(
-                          "Total Portfolio Value",
-                          style: TextStyle(color: Colors.white70, fontSize: 16),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "₹${totalValue.toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                SizedBox(
-                  height: 300,
-                  child: PieChart(
-                    PieChartData(
-                      centerSpaceRadius: 60,
-                      sectionsSpace: 3,
-                      sections: sections,
-                    ),
-                  ),
-                ),
-
-                Card(
-                  color: const Color(0xFF1A2B45),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.flag,
-                              color: Colors.orange,
-                            ),
-
-                            SizedBox(width: 10),
-
-                            Text(
-                              "Investment Goal",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        Text(
-                          "Goal Amount",
-                          style: TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-
-                        const SizedBox(height: 5),
-
-                        Text(
-                          "₹${goalAmount.toStringAsFixed(0)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        Text(
-                          "Current Value",
-                          style: TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-
-                        const SizedBox(height: 5),
-
-                        Text(
-                          "₹${totalValue.toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 12,
-                          backgroundColor: Colors.white24,
-                          valueColor:
-                              const AlwaysStoppedAnimation(
-                            Colors.greenAccent,
-                          ),
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        Center(
-                          child: Text(
-                            "${(progress * 100).toStringAsFixed(1)}% Completed",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                Card(
-                  color: const Color(0xFF1A2B45),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.favorite,
-                              color: Colors.greenAccent,
-                              size: 28,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              "Portfolio Health",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        Center(
-                          child: Text(
-                            "$healthScore / 100",
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "Risk Level: ",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                riskLevel,
-                                style: TextStyle(
-                                  color: riskColor,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                        const SizedBox(height: 10),
-
-                        Center(
-                          child: Text(
-                            healthStatus,
-                            style: TextStyle(
-                              color: healthScore >= 85
-                                  ? Colors.greenAccent
-                                  : healthScore >= 70
-                                  ? Colors.orangeAccent
-                                  : Colors.redAccent,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        const Divider(color: Colors.white24),
-
-                        const SizedBox(height: 10),
-
-                        const Text(
-                          "Suggestions",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        ...suggestions.map(
-                          (tip) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: Colors.tealAccent,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    tip,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                Card(
-                  color: const Color(0xFF1A2B45),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.psychology, color: Colors.tealAccent),
-                            SizedBox(width: 10),
-                            Text(
-                              "AI Recommendations",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 15),
-
-                        ...recommendations.map(
-                          (recommendation) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: Colors.greenAccent,
-                                  size: 20,
-                                ),
-
-                                const SizedBox(width: 10),
-
-                                Expanded(
-                                  child: Text(
-                                    recommendation,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-TransactionInsights(
-  userId: user.uid,
-),
-
-const SizedBox(height: 30),
-
-const Text(
-  "Portfolio Performance",
-  style: TextStyle(
-    color: Colors.white,
-    fontSize: 22,
-    fontWeight: FontWeight.bold,
-  ),
-),
-
-                Card(
-                  color: const Color(0xFF1A2B45),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.lightbulb,
-                              color: Colors.amber,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              "Tip of the Day",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 15),
-
-                        Text(
-                          tipOfTheDay,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                SizedBox(
-                  height: 250,
-                  child: LineChart(
-                    LineChartData(
-                      gridData: FlGridData(show: true),
-                      borderData: FlBorderData(show: true),
-
-                      titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 45,
-                          ),
-                        ),
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (value, meta) {
-                              return Text(
-                                "${value.toInt() + 1}",
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: List.generate(
-                            performanceData.length,
-                            (i) =>
-                                FlSpot(i.toDouble(), performanceData[i].value),
-                          ),
-                          isCurved: true,
-                          color: Colors.tealAccent,
-                          barWidth: 4,
-                          dotData: const FlDotData(show: true),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: Colors.tealAccent.withValues(alpha: 0.2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                ...portfolio.entries
-                    .where((e) => e.value > 0)
-                    .map(
-                      (entry) => Card(
-                        color: const Color(0xFF1A2B45),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor:
-                                colors[colorIndex++ % colors.length],
-                          ),
-                          title: Text(
-                            entry.key,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          trailing: Text(
-                            "₹${entry.value.toStringAsFixed(2)}",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-              ],
+    );
+  }
+
+  // ============================================================
+  // EMPTY
+  // ============================================================
+
+  Widget _emptyState() {
+    return Center(
+      child: Container(
+        width: 540,
+        padding: const EdgeInsets.all(45),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 30,
+              offset: const Offset(0, 12),
             ),
-          );
-        },
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.analytics_rounded,
+              color: teal,
+              size: 72,
+            ),
+            const SizedBox(height: 25),
+            Text(
+              'No Investments Yet',
+              style: _mono(24, color: white, weight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Add an investment to unlock your complete portfolio analytics.',
+              textAlign: TextAlign.center,
+              style: _mono(15, color: muted, height: 1.5),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-Widget transactionStat(
-  String title,
-  String amount,
-  int count,
-  Color color,
-  IconData icon,
-) {
-  return Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          color: color,
-          size: 22,
+// ==================================================================
+// ANALYTICS BODY
+// ==================================================================
+
+class _AnalyticsBody extends StatefulWidget {
+  final List<QueryDocumentSnapshot> docs;
+  final String userId;
+
+  const _AnalyticsBody({
+    required this.docs,
+    required this.userId,
+  });
+
+  @override
+  State<_AnalyticsBody> createState() => _AnalyticsBodyState();
+}
+
+class _AnalyticsBodyState extends State<_AnalyticsBody> {
+  List<QueryDocumentSnapshot> get docs => widget.docs;
+  String get userId => widget.userId;
+
+  static const Color background = PortfolioAnalyticsScreen.background;
+  static const Color surface = PortfolioAnalyticsScreen.surface;
+  static const Color surface2 = PortfolioAnalyticsScreen.surface2;
+  static const Color surface3 = PortfolioAnalyticsScreen.surface3;
+  static const Color border = PortfolioAnalyticsScreen.border;
+
+  static const Color teal = PortfolioAnalyticsScreen.teal;
+  static const Color white = PortfolioAnalyticsScreen.white;
+  static const Color muted = PortfolioAnalyticsScreen.muted;
+
+  static const Color green = PortfolioAnalyticsScreen.green;
+  static const Color red = PortfolioAnalyticsScreen.red;
+  static const Color orange = PortfolioAnalyticsScreen.orange;
+  static const Color blue = PortfolioAnalyticsScreen.blue;
+  static const Color purple = PortfolioAnalyticsScreen.purple;
+
+  double goalAmount = 1000000;
+  String selectedTimeframe = '1M';
+  String? selectedAssetType;
+  final GlobalKey healthKey = GlobalKey();
+
+  final List<String> timeframes = const [
+    '1W',
+    '1M',
+    '3M',
+    '1Y',
+    'All',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGoal();
+  }
+
+  Future<void> _loadGoal() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .get();
+      if (!mounted) return;
+      final data = doc.data();
+      final value = PortfolioAnalyticsScreen.safeDouble(data?['analyticsGoal']);
+      if (value > 0) {
+        setState(() => goalAmount = value);
+      }
+    } catch (_) {}
+  }
+
+  void _scrollToHealth() {
+    final ctx = healthKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _toggleAsset(String asset) {
+    setState(() {
+      selectedAssetType = selectedAssetType == asset ? null : asset;
+    });
+  }
+
+  DateTime _investmentDate(Map<String, dynamic> data, int fallbackIndex) {
+    final candidates = [
+      data['purchaseDate'],
+      data['date'],
+      data['createdAt'],
+      data['timestamp'],
+    ];
+    for (final value in candidates) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      if (value is String) {
+        final parsed = DateTime.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+    }
+    return DateTime.now().subtract(Duration(days: docs.length - fallbackIndex));
+  }
+
+  List<PerformanceData> _filterPerformanceData(List<PerformanceData> data) {
+    if (data.isEmpty || selectedTimeframe == 'All') return data;
+    final Duration duration;
+    switch (selectedTimeframe) {
+      case '1W': duration = const Duration(days: 7); break;
+      case '1M': duration = const Duration(days: 30); break;
+      case '3M': duration = const Duration(days: 90); break;
+      case '1Y': duration = const Duration(days: 365); break;
+      default: duration = const Duration(days: 30);
+    }
+    final start = DateTime.now().subtract(duration);
+    return data.where((e) => !e.date.isBefore(start)).toList();
+  }
+
+  double _chartInterval(int length) {
+    if (length <= 5) return 1;
+    if (length <= 10) return 2;
+    if (length <= 20) return 4;
+    return math.max(1, (length / 6).ceil()).toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // ============================================================
+    // PORTFOLIO DATA
+    // ============================================================
+
+    final Map<String, double> portfolio = {
+      'Stock': 0,
+      'Mutual Fund': 0,
+      'Gold': 0,
+      'Crypto': 0,
+      'FD': 0,
+    };
+
+    double totalValue = 0;
+    double totalInvested = 0;
+
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+
+      final double buyPrice = PortfolioAnalyticsScreen.safeDouble(
+        data['buyPrice'],
+      );
+
+      final double currentPrice = data['currentPrice'] != null
+          ? PortfolioAnalyticsScreen.safeDouble(
+              data['currentPrice'],
+            )
+          : buyPrice;
+
+      final int quantity = PortfolioAnalyticsScreen.safeInt(
+        data['quantity'],
+      );
+
+      final double invested = buyPrice * quantity;
+
+      final double currentValue = currentPrice * quantity;
+
+      totalInvested += invested;
+      totalValue += currentValue;
+
+      final String type = data['investmentType']?.toString() ?? 'Other';
+
+      portfolio[type] = (portfolio[type] ?? 0) + currentValue;
+    }
+
+    final double profitLoss = totalValue - totalInvested;
+
+    final double returnPercent = totalInvested == 0
+        ? 0
+        : (profitLoss / totalInvested) * 100;
+
+    double goalProgress = goalAmount == 0 ? 0 : totalValue / goalAmount;
+
+    if (goalProgress > 1) {
+      goalProgress = 1;
+    }
+
+    // ============================================================
+    // PERFORMANCE DATA
+    // ============================================================
+
+    final sortedDocs = [...docs];
+    sortedDocs.sort((a, b) {
+      final ad = a.data() as Map<String, dynamic>;
+      final bd = b.data() as Map<String, dynamic>;
+      return _investmentDate(ad, 0).compareTo(_investmentDate(bd, 0));
+    });
+
+    final List<PerformanceData> performanceData = [];
+    double runningValue = 0;
+
+    for (int i = 0; i < sortedDocs.length; i++) {
+      final data = sortedDocs[i].data() as Map<String, dynamic>;
+      final buyPrice = PortfolioAnalyticsScreen.safeDouble(data['buyPrice']);
+      final currentPrice = data['currentPrice'] != null
+          ? PortfolioAnalyticsScreen.safeDouble(data['currentPrice'])
+          : buyPrice;
+      final quantity = PortfolioAnalyticsScreen.safeInt(data['quantity']);
+      final value = data['currentValue'] != null
+          ? PortfolioAnalyticsScreen.safeDouble(data['currentValue'])
+          : currentPrice * quantity;
+      runningValue += value;
+      performanceData.add(
+        PerformanceData(
+          date: _investmentDate(data, i),
+          value: runningValue,
         ),
+      );
+    }
 
-        const SizedBox(height: 8),
+    // ============================================================
+    // HEALTH
+    // ============================================================
 
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white60,
-            fontSize: 12,
+    int healthScore = 100;
+
+    final List<String> suggestions = [];
+
+    final int assetTypes = portfolio.entries
+        .where((entry) => entry.value > 0)
+        .length;
+
+    if (assetTypes >= 4) {
+      suggestions.add(
+        'Well diversified portfolio',
+      );
+    } else if (assetTypes == 3) {
+      healthScore -= 10;
+      suggestions.add(
+        'Add one more investment type',
+      );
+    } else if (assetTypes == 2) {
+      healthScore -= 20;
+      suggestions.add(
+        'Diversify across more asset classes',
+      );
+    } else {
+      healthScore -= 35;
+      suggestions.add(
+        'Portfolio is highly concentrated',
+      );
+    }
+
+    final double cryptoPercent = totalValue == 0
+        ? 0
+        : ((portfolio['Crypto'] ?? 0) / totalValue) * 100;
+
+    if (cryptoPercent > 20) {
+      healthScore -= 15;
+      suggestions.add(
+        'Reduce Crypto exposure',
+      );
+    }
+
+    final double goldPercent = totalValue == 0
+        ? 0
+        : ((portfolio['Gold'] ?? 0) / totalValue) * 100;
+
+    if (goldPercent < 5) {
+      healthScore -= 10;
+      suggestions.add(
+        'Consider adding Gold',
+      );
+    }
+
+    final double mutualFundPercent = totalValue == 0
+        ? 0
+        : ((portfolio['Mutual Fund'] ?? 0) / totalValue) * 100;
+
+    if (mutualFundPercent >= 30) {
+      suggestions.add(
+        'Good Mutual Fund allocation',
+      );
+    } else {
+      healthScore -= 10;
+      suggestions.add(
+        'Increase Mutual Fund allocation',
+      );
+    }
+
+    if (healthScore < 0) {
+      healthScore = 0;
+    }
+
+    String healthStatus;
+
+    if (healthScore >= 85) {
+      healthStatus = 'Excellent';
+    } else if (healthScore >= 70) {
+      healthStatus = 'Good';
+    } else if (healthScore >= 50) {
+      healthStatus = 'Average';
+    } else {
+      healthStatus = 'Needs Improvement';
+    }
+
+    String riskLevel;
+    Color riskColor;
+
+    if (healthScore >= 85) {
+      riskLevel = 'Low';
+      riskColor = green;
+    } else if (healthScore >= 70) {
+      riskLevel = 'Medium';
+      riskColor = orange;
+    } else {
+      riskLevel = 'High';
+      riskColor = red;
+    }
+
+    // ============================================================
+    // AI
+    // ============================================================
+
+    final recommendations = AIRecommendationService.getRecommendations(
+      portfolio,
+    );
+
+    // ============================================================
+    // RESPONSIVE UI
+    // ============================================================
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+
+        final bool desktop = width >= 1100;
+        final bool tablet = width >= 700;
+
+        final double horizontalPadding = desktop
+            ? 42
+            : tablet
+                ? 28
+                : 16;
+
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _topHeader(
+                context,
+                desktop,
+              ),
+            ),
+
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                8,
+                horizontalPadding,
+                45,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate(
+                  [
+                    // ==================================================
+                    // HERO
+                    // ==================================================
+
+                    _heroSection(
+                      totalValue: totalValue,
+                      totalInvested: totalInvested,
+                      profitLoss: profitLoss,
+                      returnPercent: returnPercent,
+                      goalProgress: goalProgress,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // KPI ROW
+                    // ==================================================
+
+                    _kpiSection(
+                      desktop: desktop,
+                      tablet: tablet,
+                      totalValue: totalValue,
+                      totalInvested: totalInvested,
+                      profitLoss: profitLoss,
+                      healthScore: healthScore,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // ALLOCATION + GOAL
+                    // ==================================================
+
+                    if (desktop)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: _allocationCard(
+                              portfolio: portfolio,
+                              totalValue: totalValue,
+                            ),
+                          ),
+                          const SizedBox(width: 22),
+                          Expanded(
+                            flex: 4,
+                            child: _goalCard(
+                              totalValue: totalValue,
+                              progress: goalProgress,
+                            ),
+                          ),
+                        ],
+                      )
+                    else ...[
+                      _allocationCard(
+                        portfolio: portfolio,
+                        totalValue: totalValue,
+                      ),
+                      const SizedBox(height: 22),
+                      _goalCard(
+                        totalValue: totalValue,
+                        progress: goalProgress,
+                      ),
+                    ],
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // HEALTH
+                    // ==================================================
+
+                    KeyedSubtree(
+                      key: healthKey,
+                      child: _healthCard(
+                        desktop: desktop,
+                      healthScore: healthScore,
+                      healthStatus: healthStatus,
+                      riskLevel: riskLevel,
+                      riskColor: riskColor,
+                        suggestions: suggestions,
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // AI
+                    // ==================================================
+
+                    _aiCard(
+                      recommendations: recommendations,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // TRANSACTIONS
+                    // ==================================================
+
+                    TransactionInsights(
+                      userId: userId,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // PERFORMANCE
+                    // ==================================================
+
+                    _performanceCard(
+                      performanceData: performanceData,
+                      totalValue: totalValue,
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // BREAKDOWN
+                    // ==================================================
+
+                    _breakdownCard(
+                      portfolio: portfolio,
+                      totalValue: totalValue,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // HEADER
+  // ============================================================
+
+  Widget _topHeader(
+    BuildContext context,
+    bool desktop,
+  ) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        desktop ? 42 : 18,
+        28,
+        desktop ? 42 : 18,
+        22,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: teal.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: teal.withValues(alpha: 0.22),
+              ),
+            ),
+            child: const Icon(
+              Icons.analytics_rounded,
+              color: teal,
+              size: 29,
+            ),
           ),
+          const SizedBox(width: 17),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Portfolio Analytics',
+                  style: _heading(16, color: white),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Understand your wealth, performance and risk',
+                  style: _mono(15, color: muted),
+                ),
+              ],
+            ),
+          ),
+          if (desktop)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 11,
+              ),
+              decoration: BoxDecoration(
+                color: green.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: green.withValues(alpha: 0.20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.circle,
+                    color: green,
+                    size: 8,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'PORTFOLIO ACTIVE',
+                    style: _mono(
+                      11,
+                      color: green,
+                      weight: FontWeight.bold,
+                      spacing: 0.7,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // HERO
+  // ============================================================
+
+  Widget _heroSection({
+    required double totalValue,
+    required double totalInvested,
+    required double profitLoss,
+    required double returnPercent,
+    required double goalProgress,
+  }) {
+    final bool positive = profitLoss >= 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(30),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF102B47),
+            Color(0xFF0B172C),
+          ],
         ),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: teal.withValues(alpha: 0.20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: teal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: teal,
+                  size: 25,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'YOUR WEALTH DASHBOARD',
+                      style: _mono(
+                        12,
+                        color: teal,
+                        weight: FontWeight.bold,
+                        spacing: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Real-time portfolio overview',
+                      style: _mono(14, color: muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
 
-        const SizedBox(height: 4),
+          const SizedBox(height: 28),
 
-        Text(
-          amount,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
+          Text(
+            'TOTAL PORTFOLIO VALUE',
+            style: _mono(
+              12,
+              color: muted,
+              weight: FontWeight.bold,
+              spacing: 1.4,
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          Text(
+            '₹${totalValue.toStringAsFixed(2)}',
+            style: _mono(
+              40,
+              color: white,
+              weight: FontWeight.w900,
+              spacing: -1,
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _heroMetric(
+                title: 'INVESTED',
+                value: '₹${totalInvested.toStringAsFixed(0)}',
+                icon: Icons.savings_rounded,
+                color: purple,
+              ),
+              _heroMetric(
+                title: 'PROFIT / LOSS',
+                value:
+                    '${positive ? '+' : '-'}₹${profitLoss.abs().toStringAsFixed(0)}',
+                icon: positive
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                color: positive ? green : red,
+              ),
+              _heroMetric(
+                title: 'RETURN',
+                value: '${returnPercent.toStringAsFixed(2)}%',
+                icon: Icons.percent_rounded,
+                color: positive ? green : red,
+              ),
+              _heroMetric(
+                title: 'GOAL',
+                value: '${(goalProgress * 100).toStringAsFixed(0)}%',
+                icon: Icons.flag_rounded,
+                color: orange,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroMetric({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      width: 215,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.035),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.07),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
             color: color,
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
+            size: 23,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: _mono(
+                    10,
+                    color: muted,
+                    weight: FontWeight.bold,
+                    spacing: 0.7,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: _mono(18, color: color, weight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // KPI
+  // ============================================================
+
+  Widget _kpiSection({
+    required bool desktop,
+    required bool tablet,
+    required double totalValue,
+    required double totalInvested,
+    required double profitLoss,
+    required int healthScore,
+  }) {
+    final positive = profitLoss >= 0;
+    final cards = [
+      _KpiData(
+        title: 'PORTFOLIO VALUE',
+        value: '₹${totalValue.toStringAsFixed(0)}',
+        subtitle: 'Current market value · tap to open',
+        icon: Icons.account_balance_wallet_rounded,
+        color: teal,
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => PortfolioScreen()));
+        },
+      ),
+      _KpiData(
+        title: 'TOTAL INVESTED',
+        value: '₹${totalInvested.toStringAsFixed(0)}',
+        subtitle: 'Capital deployed',
+        icon: Icons.savings_rounded,
+        color: purple,
+      ),
+      _KpiData(
+        title: 'PROFIT / LOSS',
+        value: '${positive ? '+' : '-'}₹${profitLoss.abs().toStringAsFixed(0)}',
+        subtitle: positive ? 'Portfolio is positive' : 'Portfolio is negative',
+        icon: positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+        color: positive ? green : red,
+      ),
+      _KpiData(
+        title: 'HEALTH SCORE',
+        value: '$healthScore / 100',
+        subtitle: 'Portfolio quality · tap to view',
+        icon: Icons.favorite_rounded,
+        color: green,
+        onTap: _scrollToHealth,
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: cards.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: desktop ? 4 : tablet ? 2 : 1,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        childAspectRatio: desktop ? 2.05 : tablet ? 2.4 : 3.4,
+      ),
+      itemBuilder: (context, index) {
+        final card = cards[index];
+        return MouseRegion(
+          cursor: card.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          child: GestureDetector(
+            onTap: card.onTap,
+            child: Container(
+              padding: const EdgeInsets.all(19),
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: card.color.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(card.icon, color: card.color, size: 23),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(card.title, style: _mono(10, color: muted, weight: FontWeight.bold, spacing: 0.7)),
+                        const SizedBox(height: 5),
+                        Text(card.value, overflow: TextOverflow.ellipsis, style: _mono(19, color: white, weight: FontWeight.w900)),
+                        const SizedBox(height: 3),
+                        Text(card.subtitle, overflow: TextOverflow.ellipsis, style: _mono(10, color: muted)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // ALLOCATION
+  // ============================================================
+
+  Widget _allocationCard({
+    required Map<String, double> portfolio,
+    required double totalValue,
+  }) {
+    final colors = [blue, teal, orange, red, purple];
+    final entries = portfolio.entries.where((e) => e.value > 0).toList();
+    final sections = <PieChartSectionData>[];
+
+    for (int i = 0; i < entries.length; i++) {
+      final percentage = totalValue == 0 ? 0 : (entries[i].value / totalValue) * 100;
+      sections.add(
+        PieChartSectionData(
+          value: entries[i].value,
+          color: colors[i % colors.length],
+          radius: selectedAssetType == entries[i].key ? 105 : 92,
+          title: '${percentage.toStringAsFixed(0)}%',
+          titleStyle: _mono(15, color: Colors.white, weight: FontWeight.w900),
+        ),
+      );
+    }
+
+    return _panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(icon: Icons.donut_large_rounded, title: 'Asset Allocation', subtitle: 'Where your money is invested', color: teal),
+          const SizedBox(height: 25),
+          SizedBox(
+            height: 300,
+            child: totalValue <= 0
+                ? Center(child: Text('No allocation data', style: _mono(16, color: muted)))
+                : PieChart(PieChartData(sections: sections, centerSpaceRadius: 68, sectionsSpace: 4)),
+          ),
+          const SizedBox(height: 18),
+          ...List.generate(entries.length, (index) {
+            final entry = entries[index];
+            final percentage = totalValue == 0 ? 0 : (entry.value / totalValue) * 100;
+            final color = colors[index % colors.length];
+            final selected = selectedAssetType == entry.key;
+            final dimmed = selectedAssetType != null && !selected;
+            return GestureDetector(
+              onTap: () => _toggleAsset(entry.key),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: dimmed ? 0.35 : 1.0,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: selected ? teal.withValues(alpha: 0.08) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: selected ? teal.withValues(alpha: 0.25) : Colors.transparent),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(width: 11, height: 11, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(entry.key, style: _mono(14, color: white, weight: FontWeight.w600))),
+                      Text('₹${entry.value.toStringAsFixed(0)}', style: _mono(14, color: white, weight: FontWeight.bold)),
+                      const SizedBox(width: 14),
+                      SizedBox(width: 55, child: Text('${percentage.toStringAsFixed(1)}%', textAlign: TextAlign.right, style: _mono(13, color: color, weight: FontWeight.bold))),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // GOAL
+  // ============================================================
+
+  Future<void> _editGoal() async {
+    final controller = TextEditingController(
+      text: goalAmount.toStringAsFixed(0),
+    );
+
+    final result = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: border),
+        ),
+        title: Text('SET YOUR WEALTH GOAL', style: _heading(12, color: white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: _mono(17, color: white, weight: FontWeight.bold),
+          cursorColor: teal,
+          decoration: InputDecoration(
+            prefixText: '₹ ',
+            prefixStyle: _mono(17, color: teal, weight: FontWeight.bold),
+            hintText: 'Example: 1000000',
+            hintStyle: _mono(13, color: muted),
+            filled: true,
+            fillColor: surface2,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: teal, width: 1.5),
+            ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('CANCEL', style: _mono(12, color: muted, weight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: teal,
+              foregroundColor: Colors.black,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              final value = double.tryParse(controller.text.trim());
+              if (value != null && value > 0) Navigator.pop(ctx, value);
+            },
+            child: Text('SAVE GOAL', style: _mono(12, color: Colors.black, weight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
 
-        const SizedBox(height: 3),
+    controller.dispose();
+    if (result == null || result <= 0 || !mounted) return;
 
-        Text(
-          "$count transaction${count == 1 ? '' : 's'}",
-          style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 10,
+    setState(() => goalAmount = result);
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(widget.userId).set(
+        {
+          'analyticsGoal': result,
+          'analyticsGoalUpdatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: red,
+          content: Text('Could not save goal.', style: _mono(13, color: white)),
+        ),
+      );
+    }
+  }
+
+  Widget _goalCard({
+    required double totalValue,
+    required double progress,
+  }) {
+    final double remaining = (goalAmount - totalValue).clamp(0, goalAmount);
+
+    return _panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _sectionTitle(
+                  icon: Icons.flag_rounded,
+                  title: 'Investment Goal',
+                  subtitle: 'Track your wealth target',
+                  color: orange,
+                ),
+              ),
+              IconButton(
+                onPressed: _editGoal,
+                tooltip: 'Edit goal',
+                icon: const Icon(Icons.edit_rounded, color: orange),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 25),
+
+          Center(
+            child: SizedBox(
+              width: 215,
+              height: 215,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 195,
+                    height: 195,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 18,
+                      backgroundColor: Colors.white.withValues(
+                        alpha: 0.055,
+                      ),
+                      valueColor: const AlwaysStoppedAnimation(
+                        teal,
+                      ),
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${(progress * 100).toStringAsFixed(1)}%',
+                        style: _mono(34, color: white, weight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'COMPLETED',
+                        style: _mono(
+                          10,
+                          color: teal,
+                          weight: FontWeight.bold,
+                          spacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          _valueRow(
+            'Current value',
+            '₹${totalValue.toStringAsFixed(0)}',
+          ),
+
+          const SizedBox(height: 11),
+
+          _valueRow(
+            'Target',
+            '₹${goalAmount.toStringAsFixed(0)}',
+          ),
+
+          const SizedBox(height: 11),
+
+          _valueRow(
+            'Remaining',
+            '₹${remaining.toStringAsFixed(0)}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // HEALTH
+  // ============================================================
+
+  Widget _healthCard({
+    required bool desktop,
+    required int healthScore,
+    required String healthStatus,
+    required String riskLevel,
+    required Color riskColor,
+    required List<String> suggestions,
+  }) {
+    final statusColor = healthScore >= 85
+        ? green
+        : healthScore >= 70
+            ? orange
+            : red;
+
+    return _panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(
+            icon: Icons.favorite_rounded,
+            title: 'Portfolio Health',
+            subtitle: 'Diversification and risk assessment',
+            color: green,
+          ),
+
+          const SizedBox(height: 25),
+
+          if (desktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _healthScoreBox(
+                    healthScore,
+                    healthStatus,
+                    statusColor,
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: _riskBox(
+                    riskLevel,
+                    riskColor,
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              children: [
+                _healthScoreBox(
+                  healthScore,
+                  healthStatus,
+                  statusColor,
+                ),
+                const SizedBox(height: 15),
+                _riskBox(
+                  riskLevel,
+                  riskColor,
+                ),
+              ],
+            ),
+
+          const SizedBox(height: 25),
+
+          Divider(color: border),
+
+          const SizedBox(height: 22),
+
+          Text(
+            'SMART SUGGESTIONS',
+            style: _mono(
+              11,
+              color: muted,
+              weight: FontWeight.bold,
+              spacing: 1.1,
+            ),
+          ),
+
+          const SizedBox(height: 13),
+
+          ...suggestions.map(
+            (suggestion) {
+              final bool positive =
+                  suggestion.toLowerCase().contains('good') ||
+                      suggestion.toLowerCase().contains('well');
+
+              final Color color = positive ? green : orange;
+
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(
+                  bottom: 9,
+                ),
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: color.withValues(
+                    alpha: 0.06,
+                  ),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: color.withValues(
+                      alpha: 0.15,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      positive
+                          ? Icons.check_circle_rounded
+                          : Icons.lightbulb_outline_rounded,
+                      color: color,
+                      size: 21,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        suggestion,
+                        style: _mono(14, color: white, height: 1.4),
+                      ),
+                    ),
+                    if (!positive && (suggestion.toLowerCase().contains('gold') || suggestion.toLowerCase().contains('mutual fund')))
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AddInvestmentScreen()),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: color,
+                          side: BorderSide(color: color.withValues(alpha: 0.4)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text('ACT', style: _mono(10, color: color, weight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _healthScoreBox(
+    int score,
+    String status,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: color.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.health_and_safety_rounded,
+              color: color,
+              size: 31,
+            ),
+          ),
+          const SizedBox(width: 17),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'HEALTH SCORE',
+                  style: _mono(
+                    10,
+                    color: muted,
+                    weight: FontWeight.bold,
+                    spacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$score / 100',
+                  style: _mono(28, color: color, weight: FontWeight.w900),
+                ),
+                Text(
+                  status,
+                  style: _mono(14, color: color, weight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _riskBox(
+    String risk,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: color.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.shield_rounded,
+              color: color,
+              size: 31,
+            ),
+          ),
+          const SizedBox(width: 17),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'RISK LEVEL',
+                style: _mono(
+                  10,
+                  color: muted,
+                  weight: FontWeight.bold,
+                  spacing: 1,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                risk,
+                style: _mono(27, color: color, weight: FontWeight.w900),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // AI
+  // ============================================================
+
+  Widget _aiCard({
+    required List<String> recommendations,
+  }) {
+    return _panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(
+            icon: Icons.psychology_rounded,
+            title: 'AI Recommendations',
+            subtitle: 'Personalized insights for your portfolio',
+            color: purple,
+          ),
+
+          const SizedBox(height: 22),
+
+          if (recommendations.isEmpty)
+            Text(
+              'No recommendations available.',
+              style: _mono(16, color: muted),
+            )
+          else
+            ...recommendations.map(
+              (recommendation) {
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(
+                    bottom: 11,
+                  ),
+                  padding: const EdgeInsets.all(17),
+                  decoration: BoxDecoration(
+                    color: purple.withValues(
+                      alpha: 0.055,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: purple.withValues(
+                        alpha: 0.15,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: purple.withValues(
+                            alpha: 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            10,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: purple,
+                          size: 19,
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Text(
+                          recommendation,
+                          style: _mono(15, color: white, height: 1.45),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // PERFORMANCE
+  // ============================================================
+
+  Widget _performanceCard({
+    required List<PerformanceData> performanceData,
+    required double totalValue,
+  }) {
+    final filtered = _filterPerformanceData(performanceData);
+    if (filtered.isEmpty) {
+      return _panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle(
+              icon: Icons.show_chart_rounded,
+              title: 'Portfolio Performance',
+              subtitle: 'Investment value trend',
+              color: teal,
+            ),
+            const SizedBox(height: 30),
+            Center(child: Text('No performance data for this period.', style: _mono(14, color: muted))),
+          ],
+        ),
+      );
+    }
+
+    final spots = List.generate(
+      filtered.length,
+      (i) => FlSpot(i.toDouble(), filtered[i].value),
+    );
+    
+double maxY = filtered.map((e) => e.value).fold<double>(
+  0,
+  (max, e) => e > max ? e : max,
+);
+
+
+    if (maxY <= 0) maxY = 100;
+    maxY *= 1.18;
+
+    return _panel(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _sectionTitle(
+                  icon: Icons.show_chart_rounded,
+                  title: 'Portfolio Performance',
+                  subtitle: 'Track how your portfolio changes over time',
+                  color: teal,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: surface2,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: timeframes.map((range) {
+                        final selected = selectedTimeframe == range;
+                        return GestureDetector(
+                          onTap: () => setState(() => selectedTimeframe = range),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selected ? teal : Colors.transparent,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            child: Text(
+                              range,
+                              style: _mono(10, color: selected ? Colors.black : muted, weight: FontWeight.bold),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Text('CURRENT VALUE', style: _mono(10, color: muted, weight: FontWeight.bold, spacing: 1)),
+              const Spacer(),
+              Text('₹${totalValue.toStringAsFixed(2)}', style: _mono(25, color: white, weight: FontWeight.w900)),
+            ],
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            height: 390,
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: spots.length > 1 ? (spots.length - 1).toDouble() : 1,
+                minY: 0,
+                maxY: maxY,
+                backgroundColor: surface2,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxY / 4,
+                  getDrawingHorizontalLine: (_) => FlLine(color: border, strokeWidth: 1),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 65,
+                      getTitlesWidget: (value, meta) => Text(_formatValue(value), style: _mono(10, color: muted)),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 38,
+                      interval: _chartInterval(filtered.length),
+                      getTitlesWidget: (value, meta) {
+                        final index = value.round();
+                        if (index < 0 || index >= filtered.length) return const SizedBox();
+                        final date = filtered[index].date;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('${date.day}/${date.month}', style: _mono(10, color: muted)),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (spots) => spots.map((spot) {
+                      final index = spot.x.round();
+                      if (index < 0 || index >= filtered.length) return null;
+                      final date = filtered[index].date;
+                      return LineTooltipItem(
+                        '${date.day}/${date.month}/${date.year}\n₹${spot.y.toStringAsFixed(0)}',
+                        _mono(12, color: white, weight: FontWeight.bold),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: teal,
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(show: filtered.length <= 15),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [teal.withValues(alpha: 0.24), teal.withValues(alpha: 0.01)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatValue(double value) {
+    if (value >= 10000000) {
+      return '₹${(value / 10000000).toStringAsFixed(1)}Cr';
+    }
+
+    if (value >= 100000) {
+      return '₹${(value / 100000).toStringAsFixed(1)}L';
+    }
+
+    if (value >= 1000) {
+      return '₹${(value / 1000).toStringAsFixed(1)}K';
+    }
+
+    return '₹${value.toStringAsFixed(0)}';
+  }
+
+  // ============================================================
+  // BREAKDOWN
+  // ============================================================
+
+  Widget _breakdownCard({
+    required Map<String, double> portfolio,
+    required double totalValue,
+  }) {
+    final colors = [blue, teal, orange, red, purple];
+    final entries = portfolio.entries.where((e) => e.value > 0).toList();
+
+    return _panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(icon: Icons.bar_chart_rounded, title: 'Allocation Breakdown', subtitle: 'Detailed view of your holdings', color: blue),
+          const SizedBox(height: 24),
+          if (entries.isEmpty) Text('No holdings available.', style: _mono(16, color: muted)),
+          ...List.generate(entries.length, (index) {
+            final entry = entries[index];
+            final percent = totalValue == 0 ? 0 : (entry.value / totalValue) * 100;
+            final color = colors[index % colors.length];
+            final selected = selectedAssetType == entry.key;
+            final dimmed = selectedAssetType != null && !selected;
+            return GestureDetector(
+              onTap: () => _toggleAsset(entry.key),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: dimmed ? 0.35 : 1.0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: selected ? teal.withValues(alpha: 0.08) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: selected ? teal.withValues(alpha: 0.35) : Colors.transparent),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Text(entry.key, style: _mono(15, color: white, weight: FontWeight.w600)),
+                          const Spacer(),
+                          Text('₹${entry.value.toStringAsFixed(0)}', style: _mono(15, color: white, weight: FontWeight.bold)),
+                          const SizedBox(width: 15),
+                          SizedBox(width: 60, child: Text('${percent.toStringAsFixed(1)}%', textAlign: TextAlign.right, style: _mono(13, color: color, weight: FontWeight.bold))),
+                        ],
+                      ),
+                      const SizedBox(height: 9),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: LinearProgressIndicator(
+                          value: percent / 100,
+                          minHeight: 9,
+                          backgroundColor: Colors.white.withValues(alpha: 0.05),
+                          valueColor: AlwaysStoppedAnimation(color),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // GENERIC PANEL
+  // ============================================================
+
+  Widget _panel({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(27),
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: double.infinity,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: border,
+        ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE — used by every card, so this one edit point
+  // keeps all section headers themed consistently.
+  // ============================================================
+
+  Widget _sectionTitle({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: color.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 25,
+          ),
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: _heading(13, color: white),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: _mono(13, color: muted),
+              ),
+            ],
           ),
         ),
       ],
-    ),
-  );
+    );
+  }
+
+  // ============================================================
+  // VALUE ROW
+  // ============================================================
+
+  Widget _valueRow(
+    String label,
+    String value,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 15,
+      ),
+      decoration: BoxDecoration(
+        color: surface2,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: _mono(14, color: muted),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: _mono(16, color: white, weight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+// ==================================================================
+// KPI MODEL
+// ==================================================================
+
+class _KpiData {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _KpiData({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
+}
+
+// ==================================================================
+// TRANSACTION INSIGHTS
+// ==================================================================
 
 class TransactionInsights extends StatelessWidget {
   final String userId;
@@ -765,6 +2175,20 @@ class TransactionInsights extends StatelessWidget {
     super.key,
     required this.userId,
   });
+
+  static const Color surface = PortfolioAnalyticsScreen.surface;
+  static const Color surface2 = PortfolioAnalyticsScreen.surface2;
+  static const Color border = PortfolioAnalyticsScreen.border;
+  static const Color teal = PortfolioAnalyticsScreen.teal;
+  static const Color white = PortfolioAnalyticsScreen.white;
+  static const Color muted = PortfolioAnalyticsScreen.muted;
+  static const Color green = PortfolioAnalyticsScreen.green;
+  static const Color red = PortfolioAnalyticsScreen.red;
+  static const Color orange = PortfolioAnalyticsScreen.orange;
+
+  // ============================================================
+  // LOAD TRANSACTIONS
+  // ============================================================
 
   Future<Map<String, dynamic>> loadTransactions() async {
     double bought = 0;
@@ -776,32 +2200,36 @@ class TransactionInsights extends StatelessWidget {
     int dividendCount = 0;
 
     final investments = await FirebaseFirestore.instance
-        .collection("investments")
-        .where("userId", isEqualTo: userId)
+        .collection('investments')
+        .where(
+          'userId',
+          isEqualTo: userId,
+        )
         .get();
 
     for (final investment in investments.docs) {
       final transactions = await FirebaseFirestore.instance
-          .collection("investments")
+          .collection('investments')
           .doc(investment.id)
-          .collection("transactions")
+          .collection('transactions')
           .get();
 
       for (final transaction in transactions.docs) {
         final data = transaction.data();
 
-        final String type = data["type"] ?? "";
+        final String type = data['type']?.toString() ?? '';
 
-        final double amount =
-            (data["amount"] as num?)?.toDouble() ?? 0;
+        final double amount = PortfolioAnalyticsScreen.safeDouble(
+          data['amount'],
+        );
 
-        if (type == "BUY") {
+        if (type == 'BUY') {
           bought += amount;
           buyCount++;
-        } else if (type == "SELL") {
+        } else if (type == 'SELL') {
           sold += amount;
           sellCount++;
-        } else if (type == "DIVIDEND") {
+        } else if (type == 'DIVIDEND') {
           dividends += amount;
           dividendCount++;
         }
@@ -809,197 +2237,372 @@ class TransactionInsights extends StatelessWidget {
     }
 
     return {
-      "bought": bought,
-      "sold": sold,
-      "dividends": dividends,
-      "buyCount": buyCount,
-      "sellCount": sellCount,
-      "dividendCount": dividendCount,
+      'bought': bought,
+      'sold': sold,
+      'dividends': dividends,
+      'buyCount': buyCount,
+      'sellCount': sellCount,
+      'dividendCount': dividendCount,
     };
   }
+
+  // ============================================================
+  // UI
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
       future: loadTransactions(),
-
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
-          return const Card(
-            color: Color(0xFF1A2B45),
-            child: Padding(
-              padding: EdgeInsets.all(25),
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: Colors.tealAccent,
-                ),
-              ),
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _panel(
+            child: Column(
+              children: [
+                _transactionSkeleton(),
+                const SizedBox(height: 12),
+                _transactionSkeleton(),
+                const SizedBox(height: 12),
+                _transactionSkeleton(),
+              ],
             ),
           );
         }
 
         if (snapshot.hasError) {
-          return const Card(
-            color: Color(0xFF1A2B45),
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                "Unable to load transaction insights.",
-                style: TextStyle(
-                  color: Colors.white70,
-                ),
-              ),
+          return _panel(
+            child: Text(
+              'Unable to load transaction insights.',
+              style: _mono(16, color: muted),
             ),
           );
         }
 
-        final data = snapshot.data!;
+        final data = snapshot.data ?? {};
 
-        final double bought = data["bought"];
-        final double sold = data["sold"];
-        final double dividends = data["dividends"];
+        final double bought = PortfolioAnalyticsScreen.safeDouble(
+          data['bought'],
+        );
 
-        final int buyCount = data["buyCount"];
-        final int sellCount = data["sellCount"];
-        final int dividendCount =
-            data["dividendCount"];
+        final double sold = PortfolioAnalyticsScreen.safeDouble(
+          data['sold'],
+        );
 
-        return Card(
-          color: const Color(0xFF1A2B45),
+        final double dividends = PortfolioAnalyticsScreen.safeDouble(
+          data['dividends'],
+        );
 
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
+        final int buyCount = PortfolioAnalyticsScreen.safeInt(
+          data['buyCount'],
+        );
 
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+        final int sellCount = PortfolioAnalyticsScreen.safeInt(
+          data['sellCount'],
+        );
 
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+        final int dividendCount = PortfolioAnalyticsScreen.safeInt(
+          data['dividendCount'],
+        );
 
-              children: [
+        return _panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(),
 
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.receipt_long,
-                      color: Colors.tealAccent,
-                      size: 28,
+              const SizedBox(height: 23),
+
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool wide = constraints.maxWidth >= 800;
+
+                  final cards = [
+                    _transactionCard(
+                      title: 'BOUGHT',
+                      amount: bought,
+                      count: buyCount,
+                      color: green,
+                      icon: Icons.arrow_downward_rounded,
                     ),
-
-                    SizedBox(width: 10),
-
-                    Text(
-                      "Transaction Insights",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 21,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    _transactionCard(
+                      title: 'SOLD',
+                      amount: sold,
+                      count: sellCount,
+                      color: red,
+                      icon: Icons.arrow_upward_rounded,
                     ),
-                  ],
-                ),
-
-                const SizedBox(height: 8),
-
-                const Text(
-                  "Your investment activity",
-                  style: TextStyle(
-                    color: Colors.white54,
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                Row(
-                  children: [
-
-                    Expanded(
-                      child: transactionStat(
-                        "Bought",
-                        "₹${bought.toStringAsFixed(0)}",
-                        buyCount,
-                        Colors.greenAccent,
-                        Icons.arrow_downward,
-                      ),
+                    _transactionCard(
+                      title: 'DIVIDENDS',
+                      amount: dividends,
+                      count: dividendCount,
+                      color: orange,
+                      icon: Icons.account_balance_wallet_rounded,
                     ),
+                  ];
 
-                    const SizedBox(width: 10),
+                  if (wide) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: cards[0],
+                        ),
+                        const SizedBox(
+                          width: 14,
+                        ),
+                        Expanded(
+                          child: cards[1],
+                        ),
+                        const SizedBox(
+                          width: 14,
+                        ),
+                        Expanded(
+                          child: cards[2],
+                        ),
+                      ],
+                    );
+                  }
 
-                    Expanded(
-                      child: transactionStat(
-                        "Sold",
-                        "₹${sold.toStringAsFixed(0)}",
-                        sellCount,
-                        Colors.redAccent,
-                        Icons.arrow_upward,
-                      ),
-                    ),
-
-                    const SizedBox(width: 10),
-
-                    Expanded(
-                      child: transactionStat(
-                        "Dividends",
-                        "₹${dividends.toStringAsFixed(0)}",
-                        dividendCount,
-                        Colors.amber,
-                        Icons.account_balance_wallet,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                Container(
-                  width: double.infinity,
-
-                  padding: const EdgeInsets.all(16),
-
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius:
-                        BorderRadius.circular(14),
-                  ),
-
-                  child: Row(
+                  return Column(
                     children: [
-
-                      const Icon(
-                        Icons.trending_up,
-                        color: Colors.tealAccent,
+                      cards[0],
+                      const SizedBox(
+                        height: 12,
                       ),
-
-                      const SizedBox(width: 12),
-
-                      const Expanded(
-                        child: Text(
-                          "Net Investment",
-                          style: TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
+                      cards[1],
+                      const SizedBox(
+                        height: 12,
                       ),
-
-                      Text(
-                        "₹${(bought - sold).toStringAsFixed(2)}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      cards[2],
                     ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: surface2,
+                  borderRadius: BorderRadius.circular(
+                    14,
                   ),
+                  border: Border.all(
+                    color: border,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 43,
+                      height: 43,
+                      decoration: BoxDecoration(
+                        color: teal.withValues(
+                          alpha: 0.10,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: teal,
+                      ),
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NET INVESTMENT',
+                            style: _mono(
+                              10,
+                              color: muted,
+                              weight: FontWeight.bold,
+                              spacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Bought minus sold value',
+                            style: _mono(12, color: muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '₹${(bought - sold).toStringAsFixed(2)}',
+                      style: _mono(20, color: white, weight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _transactionSkeleton() {
+    return Container(
+      height: 78,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: surface2,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 90, height: 10, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(5))),
+                const SizedBox(height: 10),
+                Container(width: 150, height: 14, decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(5))),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header() {
+    return Row(
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: teal.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: const Icon(
+            Icons.receipt_long_rounded,
+            color: teal,
+            size: 26,
+          ),
+        ),
+        const SizedBox(width: 15),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Transaction Insights',
+              style: _heading(13, color: white),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your investment activity',
+              style: _mono(13, color: muted),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _transactionCard({
+    required String title,
+    required double amount,
+    required int count,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: color.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: _mono(
+                    10,
+                    color: muted,
+                    weight: FontWeight.bold,
+                    spacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '₹${amount.toStringAsFixed(0)}',
+                  overflow: TextOverflow.ellipsis,
+                  style: _mono(19, color: color, weight: FontWeight.w900),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$count transaction${count == 1 ? '' : 's'}',
+                  style: _mono(11, color: muted),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _panel({
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(27),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: border,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }

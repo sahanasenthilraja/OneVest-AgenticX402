@@ -1,1173 +1,749 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:google_fonts/google_fonts.dart';
 
 import 'investment_details_screen.dart';
+import '../widgets/app_sidebar.dart';
 
 class PortfolioScreen extends StatefulWidget {
   const PortfolioScreen({super.key});
 
   @override
-  State<PortfolioScreen> createState() =>
-      _PortfolioScreenState();
+  State<PortfolioScreen> createState() => _PortfolioScreenState();
 }
 
-class _PortfolioScreenState
-    extends State<PortfolioScreen> {
-  final user =
-      FirebaseAuth.instance.currentUser;
+class _PortfolioScreenState extends State<PortfolioScreen> {
+  final user = FirebaseAuth.instance.currentUser;
 
   final TextEditingController searchController =
       TextEditingController();
 
   String searchText = "";
 
-  Timer? _refreshTimer;
-
-  /*
-   * Current live prices.
-   *
-   * Key   = market symbol
-   * Value = latest market price
-   */
-  final Map<String, double> livePrices = {};
-
-  bool isRefreshingPrices = false;
-
-@override
-void initState() {
-  super.initState();
-
-  // Fetch live prices once when Portfolio opens.
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (mounted) {
-      _refreshLivePrices();
-    }
-  });
-
-  // Refresh live prices every 60 seconds.
-  _refreshTimer = Timer.periodic(
-    const Duration(seconds: 60),
-    (_) {
-      if (mounted) {
-        _refreshLivePrices();
-      }
-    },
-  );
-}
-
   @override
   void dispose() {
-    _refreshTimer?.cancel();
     searchController.dispose();
     super.dispose();
   }
 
-  // ============================================================
-  // FETCH CURRENT MARKET PRICE
-  // ============================================================
-
-  Future<double?> getCurrentMarketPrice(
-    String symbol,
-  ) async {
-    try {
-      if (symbol.trim().isEmpty) {
-        return null;
-      }
-
-      final uri = Uri.parse(
-        "http://10.0.2.2:4021/api/market-price"
-        "?symbol=${Uri.encodeComponent(symbol)}",
-      );
-
-      debugPrint(
-        "Fetching live price for $symbol",
-      );
-
-      final response =
-          await http.get(uri);
-
-      debugPrint(
-        "Market API status: ${response.statusCode}",
-      );
-
-      if (response.statusCode != 200) {
-        debugPrint(
-          "Market API failed for $symbol",
-        );
-
-        return null;
-      }
-
-      final data =
-          jsonDecode(response.body);
-
-      if (data["success"] != true) {
-        debugPrint(
-          "Market API returned unsuccessful response for $symbol",
-        );
-
-        return null;
-      }
-
-      final price =
-          data["market"]?["price"];
-
-      if (price == null) {
-        return null;
-      }
-
-      final currentPrice =
-          (price as num).toDouble();
-
-      debugPrint(
-        "$symbol current price = $currentPrice",
-      );
-
-      return currentPrice;
-    } catch (e) {
-      debugPrint(
-        "Market price error for $symbol: $e",
-      );
-
-      return null;
-    }
-  }
-
-  // ============================================================
-  // REFRESH ALL LIVE PRICES
-  // ============================================================
-
-  Future<void> _refreshLivePrices() async {
-    if (isRefreshingPrices) {
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      isRefreshingPrices = true;
-    });
-
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection("investments")
-              .where(
-                "userId",
-                isEqualTo: user!.uid,
-              )
-              .get();
-
-      final symbols = <String>{};
-
-      for (final doc in snapshot.docs) {
-        final data =
-            doc.data();
-
-        final symbol =
-            (data["symbol"] ?? "")
-                .toString()
-                .trim()
-                .toUpperCase();
-
-        if (symbol.isNotEmpty) {
-          symbols.add(symbol);
-        }
-      }
-
-      /*
-       * Fetch each unique symbol.
-       */
-      for (final symbol in symbols) {
-        final price =
-            await getCurrentMarketPrice(
-          symbol,
-        );
-
-        if (price != null) {
-          livePrices[symbol] =
-              price;
-        }
-      }
-    } catch (e) {
-      debugPrint(
-        "Live price refresh error: $e",
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isRefreshingPrices = false;
-        });
-      }
-    }
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    if (user == null) {
-      return const Scaffold(
-        backgroundColor:
-            Color(0xFF020B1D),
-        body: Center(
-          child: Text(
-            "Please log in",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-            ),
-          ),
-        ),
-      );
-    }
-
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF020B1D),
+      backgroundColor: const Color(0xFF020B1D),
 
       appBar: AppBar(
-        backgroundColor:
-            const Color(0xFF020B1D),
+        backgroundColor: const Color(0xFF020B1D),
         elevation: 0,
         centerTitle: false,
         scrolledUnderElevation: 0,
 
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
-            size: 22,
-          ),
-          onPressed: () =>
-              Navigator.pop(context),
-        ),
-
-        title: const Text(
-          "My Portfolio",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+        title: RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: "My ",
+                style: GoogleFonts.pressStart2p(
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+              TextSpan(
+                text: "Portfolio",
+                style: GoogleFonts.pressStart2p(
+                  color: const Color(0xFF14C8B0),
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
 
         actions: [
-          /*
-           * Manual refresh button.
-           */
-          IconButton(
-            icon: isRefreshingPrices
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color:
-                          Colors.tealAccent,
-                    ),
-                  )
-                : const Icon(
-                    Icons.refresh_rounded,
-                    color:
-                        Colors.tealAccent,
-                  ),
-            onPressed:
-                isRefreshingPrices
-                    ? null
-                    : _refreshLivePrices,
-          ),
-
           IconButton(
             icon: const Icon(
               Icons.notifications_none_rounded,
-              color: Colors.white,
+              color: Color(0xFFB7BED3),
             ),
             onPressed: () {},
           ),
-
           const SizedBox(width: 8),
         ],
       ),
 
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection("investments")
-            .where(
-              "userId",
-              isEqualTo: user!.uid,
-            )
-            .orderBy(
-              "createdAt",
-              descending: true,
-            )
-            .snapshots(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= 900;
 
-        builder: (
-          context,
-          snapshot,
-        ) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Center(
-              child:
-                  CircularProgressIndicator(),
+          if (isDesktop) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const AppSidebar(
+                  current: SidebarItem.portfolio,
+                ),
+
+                Expanded(
+                  child: _buildPortfolioContent(),
+                ),
+              ],
             );
           }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                "Error loading portfolio:\n${snapshot.error}",
-                textAlign:
-                    TextAlign.center,
-                style:
-                    const TextStyle(
-                  color: Colors.white70,
+          return _buildPortfolioContent();
+        },
+      ),
+    );
+  }
+
+  Widget _buildPortfolioContent() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection("investments")
+          .where(
+            "userId",
+            isEqualTo: user!.uid,
+          )
+          .orderBy(
+            "createdAt",
+            descending: true,
+          )
+          .snapshots(),
+
+      builder: (context, snapshot) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF14C8B0),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData ||
+            snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.inbox_outlined,
+                  color: Color(0xFF6D7890),
+                  size: 40,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  "No investments yet",
+                  style: GoogleFonts.spaceMono(
+                    color: const Color(0xFFB7BED3),
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final docs = snapshot.data!.docs;
+
+        final filteredDocs = docs.where((doc) {
+          final data =
+              doc.data() as Map<String, dynamic>;
+
+          final investmentName =
+              (data["investmentName"] ?? "")
+                  .toString()
+                  .toLowerCase();
+
+          final investmentType =
+              (data["investmentType"] ?? "")
+                  .toString()
+                  .toLowerCase();
+
+          return investmentName.contains(
+                searchText.toLowerCase(),
+              ) ||
+              investmentType.contains(
+                searchText.toLowerCase(),
+              );
+        }).toList();
+
+        double totalInvested = 0;
+        double totalPortfolio = 0;
+
+        for (var doc in docs) {
+          final data =
+              doc.data() as Map<String, dynamic>;
+
+          final double buyPrice =
+              (data["buyPrice"] as num).toDouble();
+
+          final double currentPrice =
+              data.containsKey("currentPrice")
+                  ? (data["currentPrice"] as num)
+                      .toDouble()
+                  : buyPrice;
+
+          final int quantity =
+              (data["quantity"] as num).toInt();
+
+          totalInvested += buyPrice * quantity;
+          totalPortfolio += currentPrice * quantity;
+        }
+
+        final double overallProfit =
+            totalPortfolio - totalInvested;
+
+        final double overallReturn =
+            totalInvested == 0
+                ? 0
+                : (overallProfit / totalInvested) * 100;
+
+        final bool isOverallProfit =
+            overallProfit >= 0;
+
+        return Column(
+          children: [
+            // ==========================================================
+            // PORTFOLIO SUMMARY
+            // ==========================================================
+
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
+
+              decoration: BoxDecoration(
+                color: const Color(0xFF0E1830),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF1E2C48),
                 ),
               ),
-            );
-          }
 
-          if (!snapshot.hasData ||
-              snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text(
-                "No Investments Yet",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 18,
-                ),
-              ),
-            );
-          }
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
 
-          final docs =
-              snapshot.data!.docs;
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF14C8B0)
+                              .withValues(alpha: 0.14),
+                          borderRadius:
+                              BorderRadius.circular(11),
+                        ),
 
-          // ==================================================
-          // FILTER
-          // ==================================================
+                        alignment: Alignment.center,
 
-          final filteredDocs =
-              docs.where((doc) {
-            final data =
-                doc.data()
-                    as Map<String, dynamic>;
-
-            final investmentName =
-                (data["investmentName"] ??
-                        "")
-                    .toString()
-                    .toLowerCase();
-
-            final investmentType =
-                (data["investmentType"] ??
-                        "")
-                    .toString()
-                    .toLowerCase();
-
-            final symbol =
-                (data["symbol"] ?? "")
-                    .toString()
-                    .toLowerCase();
-
-            final query =
-                searchText
-                    .toLowerCase();
-
-            return investmentName
-                    .contains(query) ||
-                investmentType
-                    .contains(query) ||
-                symbol.contains(query);
-          }).toList();
-
-          // ==================================================
-          // PORTFOLIO TOTALS
-          // ==================================================
-
-          double totalInvested = 0;
-
-          double totalPortfolio = 0;
-
-          for (final doc in docs) {
-            final data =
-                doc.data()
-                    as Map<String, dynamic>;
-
-            final buyPrice =
-                (data["buyPrice"] ?? 0)
-                    as num;
-
-            final quantity =
-                (data["quantity"] ?? 0)
-                    as num;
-
-            final symbol =
-                (data["symbol"] ?? "")
-                    .toString()
-                    .trim()
-                    .toUpperCase();
-
-            final investedAmount =
-                buyPrice.toDouble() *
-                    quantity.toInt();
-
-            /*
-             * Use live price if available.
-             *
-             * Otherwise fall back to buy price.
-             */
-            final currentPrice =
-                livePrices[symbol] ??
-                    buyPrice.toDouble();
-
-            final currentValue =
-                currentPrice *
-                    quantity.toInt();
-
-            totalInvested +=
-                investedAmount;
-
-            totalPortfolio +=
-                currentValue;
-          }
-
-          final overallProfit =
-              totalPortfolio -
-                  totalInvested;
-
-          final overallReturn =
-              totalInvested == 0
-                  ? 0
-                  : (overallProfit /
-                          totalInvested) *
-                      100;
-
-          final isOverallProfit =
-              overallProfit >= 0;
-
-          // ==================================================
-          // UI
-          // ==================================================
-
-          return Column(
-            children: [
-              // =================================================
-              // PORTFOLIO SUMMARY
-              // =================================================
-
-              Container(
-                width:
-                    double.infinity,
-
-                margin:
-                    const EdgeInsets.all(
-                  20,
-                ),
-
-                padding:
-                    const EdgeInsets.all(
-                  20,
-                ),
-
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(
-                    0xFF16253C,
-                  ),
-
-                  borderRadius:
-                      BorderRadius.circular(
-                    22,
-                  ),
-
-                  border:
-                      Border.all(
-                    color:
-                        Colors.white10,
-                  ),
-
-                  boxShadow:
-                      const [
-                    BoxShadow(
-                      color:
-                          Colors.black26,
-                      blurRadius: 12,
-                      offset:
-                          Offset(0, 6),
-                    ),
-                  ],
-                ),
-
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(
+                        child: const Icon(
                           Icons
                               .account_balance_wallet_rounded,
-                          color:
-                              Colors.tealAccent,
-                          size: 28,
+                          color: Color(0xFF14C8B0),
+                          size: 21,
                         ),
-
-                        SizedBox(
-                          width: 10,
-                        ),
-
-                        Text(
-                          "Portfolio Summary",
-                          style:
-                              TextStyle(
-                            color:
-                                Colors.white,
-                            fontSize: 24,
-                            fontWeight:
-                                FontWeight
-                                    .w700,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                      height: 25,
-                    ),
-
-                    // TOTAL INVESTED
-
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .spaceBetween,
-
-                      children: [
-                        const Text(
-                          "Total Invested",
-                          style:
-                              TextStyle(
-                            color:
-                                Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-
-                        Text(
-                          "₹${totalInvested.toStringAsFixed(2)}",
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.white,
-                            fontSize: 20,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                      height: 18,
-                    ),
-
-                    // CURRENT VALUE
-
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .spaceBetween,
-
-                      children: [
-                        const Text(
-                          "Current Value",
-                          style:
-                              TextStyle(
-                            color:
-                                Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-
-                        Text(
-                          "₹${totalPortfolio.toStringAsFixed(2)}",
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.white,
-                            fontSize: 20,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Padding(
-                      padding:
-                          EdgeInsets.symmetric(
-                        vertical: 20,
                       ),
 
-                      child: Divider(
-                        color:
-                            Colors.white24,
-                        thickness: 1,
+                      const SizedBox(width: 12),
+
+                      Text(
+                        "Portfolio Summary",
+                        style: GoogleFonts.pressStart2p(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  _summaryRow(
+                    "TOTAL INVESTED",
+                    "₹${totalInvested.toStringAsFixed(2)}",
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  _summaryRow(
+                    "CURRENT VALUE",
+                    "₹${totalPortfolio.toStringAsFixed(2)}",
+                  ),
+
+                  const Padding(
+                    padding:
+                        EdgeInsets.symmetric(vertical: 20),
+                    child: Divider(
+                      color: Color(0xFF1E2C48),
+                      thickness: 1,
                     ),
+                  ),
 
-                    // PROFIT / LOSS
+                  _summaryRow(
+                    isOverallProfit
+                        ? "OVERALL PROFIT"
+                        : "OVERALL LOSS",
+                    "${isOverallProfit ? "+" : "-"}₹${overallProfit.abs().toStringAsFixed(2)}",
+                    valueColor: isOverallProfit
+                        ? const Color(0xFF3DDC97)
+                        : const Color(0xFFFF6F61),
+                  ),
 
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .spaceBetween,
+                  const SizedBox(height: 18),
 
-                      children: [
-                        Text(
-                          isOverallProfit
-                              ? "Overall Profit"
-                              : "Overall Loss",
-
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-
-                        Text(
-                          "${isOverallProfit ? "+" : "-"}₹${overallProfit.abs().toStringAsFixed(2)}",
-
-                          style:
-                              TextStyle(
-                            color:
-                                isOverallProfit
-                                    ? Colors.greenAccent
-                                    : Colors.redAccent,
-                            fontSize: 20,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                      height: 18,
-                    ),
-
-                    // RETURN
-
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment
-                              .spaceBetween,
-
-                      children: [
-                        const Text(
-                          "Return",
-                          style:
-                              TextStyle(
-                            color:
-                                Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-
-                        Text(
-                          "${isOverallProfit ? "+" : "-"}${overallReturn.abs().toStringAsFixed(2)}%",
-
-                          style:
-                              TextStyle(
-                            color:
-                                isOverallProfit
-                                    ? Colors.greenAccent
-                                    : Colors.redAccent,
-                            fontSize: 20,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                      height: 15,
-                    ),
-
-                    /*
-                     * Shows whether live prices have
-                     * been loaded.
-                     */
-
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.circle,
-                          size: 9,
-                          color:
-                              livePrices.isNotEmpty
-                                  ? Colors.greenAccent
-                                  : Colors.orangeAccent,
-                        ),
-
-                        const SizedBox(
-                          width: 7,
-                        ),
-
-                        Text(
-                          livePrices.isNotEmpty
-                              ? "Live market prices"
-                              : "Loading market prices...",
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  _summaryRow(
+                    "RETURN",
+                    "${isOverallProfit ? "+" : "-"}${overallReturn.abs().toStringAsFixed(2)}%",
+                    valueColor: isOverallProfit
+                        ? const Color(0xFF3DDC97)
+                        : const Color(0xFFFF6F61),
+                  ),
+                ],
               ),
+            ),
 
-              // =================================================
-              // SEARCH
-              // =================================================
+            // ==========================================================
+            // SEARCH
+            // ==========================================================
 
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 20,
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20),
+
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111F36),
+                  borderRadius:
+                      BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF263A56),
+                  ),
                 ),
 
                 child: TextField(
-                  controller:
-                      searchController,
+                  controller: searchController,
 
-                  style:
-                      const TextStyle(
+                  style: GoogleFonts.spaceMono(
                     color: Colors.white,
+                    fontSize: 14,
                   ),
 
-                  decoration:
-                      InputDecoration(
+                  cursorColor:
+                      const Color(0xFF14C8B0),
+
+                  decoration: InputDecoration(
                     hintText:
-                        "Search Investments...",
+                        "Search investments...",
 
                     hintStyle:
-                        const TextStyle(
+                        GoogleFonts.spaceMono(
                       color:
-                          Colors.white54,
-                      fontSize: 16,
+                          const Color(0xFF8A96AA),
+                      fontSize: 14,
                     ),
 
-                    prefixIcon:
-                        const Icon(
+                    prefixIcon: const Icon(
                       Icons.search,
-                      color:
-                          Colors.tealAccent,
+                      color: Color(0xFF14C8B0),
                     ),
 
-                    filled: true,
+                    border: InputBorder.none,
+                    enabledBorder:
+                        InputBorder.none,
+                    focusedBorder:
+                        InputBorder.none,
 
-                    fillColor:
-                        const Color(
-                      0xFF132743,
-                    ),
-
-                    border:
-                        OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
-                      borderSide:
-                          BorderSide.none,
+                    contentPadding:
+                        const EdgeInsets.symmetric(
+                      vertical: 16,
                     ),
                   ),
 
-                  onChanged:
-                      (value) {
+                  onChanged: (value) {
                     setState(() {
-                      searchText =
-                          value;
+                      searchText = value;
                     });
                   },
                 ),
               ),
+            ),
 
-              const SizedBox(
-                height: 20,
-              ),
+            const SizedBox(height: 20),
 
-              // =================================================
-              // INVESTMENT LIST
-              // =================================================
+            // ==========================================================
+            // INVESTMENT LIST
+            // ==========================================================
 
-              Expanded(
-                child:
-                    ListView.builder(
-                  itemCount:
-                      filteredDocs.length,
+            Expanded(
+              child: filteredDocs.isEmpty
+                  ? Center(
+                      child: Text(
+                        "No matches for \"$searchText\"",
+                        style:
+                            GoogleFonts.spaceMono(
+                          color:
+                              const Color(0xFF6D7890),
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount:
+                          filteredDocs.length,
 
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 15,
-                  ),
-
-                  itemBuilder:
-                      (context, index) {
-                    /*
-                     * IMPORTANT:
-                     *
-                     * Use filteredDocs[index],
-                     * not docs[index].
-                     */
-
-                    final investment =
-                        filteredDocs[index];
-
-                    final data =
-                        investment.data()
-                            as Map<String, dynamic>;
-
-                    final buyPrice =
-                        (data["buyPrice"] ??
-                                0)
-                            as num;
-
-                    final quantity =
-                        (data["quantity"] ??
-                                0)
-                            as num;
-
-                    final symbol =
-                        (data["symbol"] ??
-                                "")
-                            .toString()
-                            .trim()
-                            .toUpperCase();
-
-                    /*
-                     * Current live price.
-                     *
-                     * If the API has already returned
-                     * a value, use it.
-                     *
-                     * Otherwise use buy price temporarily.
-                     */
-
-                    final currentPrice =
-                        livePrices[symbol] ??
-                            buyPrice
-                                .toDouble();
-
-                    final investedAmount =
-                        buyPrice
-                                .toDouble() *
-                            quantity
-                                .toInt();
-
-                    final currentValue =
-                        currentPrice *
-                            quantity
-                                .toInt();
-
-                    final profitLoss =
-                        currentValue -
-                            investedAmount;
-
-                    final profitPercent =
-                        investedAmount == 0
-                            ? 0
-                            : (profitLoss /
-                                    investedAmount) *
-                                100;
-
-                    final isProfit =
-                        profitLoss >= 0;
-
-                    return InkWell(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 20,
                       ),
 
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) =>
-                                    InvestmentDetailsScreen(
-                              investmentId:
-                                  investment.id,
+                      itemBuilder:
+                          (context, index) {
+                        final investment =
+                            filteredDocs[index];
 
-                              investmentData:
-                                  data,
+                        final data =
+                            investment.data()
+                                as Map<String, dynamic>;
+
+                        final double buyPrice =
+                            (data["buyPrice"] as num)
+                                .toDouble();
+
+                        final double currentPrice =
+                            data.containsKey(
+                                    "currentPrice")
+                                ? (data["currentPrice"]
+                                        as num)
+                                    .toDouble()
+                                : buyPrice;
+
+                        final int quantity =
+                            (data["quantity"] as num)
+                                .toInt();
+
+                        final double investedAmount =
+                            buyPrice * quantity;
+
+                        final double currentValue =
+                            currentPrice * quantity;
+
+                        final double profitLoss =
+                            currentValue -
+                                investedAmount;
+
+                        final double profitPercent =
+                            investedAmount == 0
+                                ? 0
+                                : (profitLoss /
+                                        investedAmount) *
+                                    100;
+
+                        final bool isProfit =
+                            profitLoss >= 0;
+
+                        return MouseRegion(
+                          cursor:
+                              SystemMouseCursors.click,
+
+                          child: InkWell(
+                            borderRadius:
+                                BorderRadius.circular(16),
+
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      InvestmentDetailsScreen(
+                                    investmentId:
+                                        investment.id,
+                                    investmentData:
+                                        data,
+                                  ),
+                                ),
+                              );
+                            },
+
+                            child: Container(
+                              margin:
+                                  const EdgeInsets.only(
+                                bottom: 12,
+                              ),
+
+                              padding:
+                                  const EdgeInsets.all(
+                                16,
+                              ),
+
+                              decoration:
+                                  BoxDecoration(
+                                color:
+                                    const Color(
+                                  0xFF0E1830,
+                                ),
+
+                                borderRadius:
+                                    BorderRadius.circular(
+                                  16,
+                                ),
+
+                                border: Border.all(
+                                  color:
+                                      const Color(
+                                    0xFF1E2C48,
+                                  ),
+                                ),
+                              ),
+
+                              child: Row(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+
+                                children: [
+                                  Container(
+                                    width: 46,
+                                    height: 46,
+
+                                    decoration:
+                                        BoxDecoration(
+                                      color:
+                                          const Color(
+                                        0xFF14C8B0,
+                                      ).withValues(
+                                        alpha: 0.14,
+                                      ),
+
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(
+                                        13,
+                                      ),
+                                    ),
+
+                                    alignment:
+                                        Alignment.center,
+
+                                    child:
+                                        const Icon(
+                                      Icons
+                                          .show_chart_rounded,
+                                      color:
+                                          Color(
+                                        0xFF14C8B0,
+                                      ),
+                                      size: 24,
+                                    ),
+                                  ),
+
+                                  const SizedBox(
+                                    width: 14,
+                                  ),
+
+                                  Expanded(
+                                    child:
+                                        Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment
+                                              .start,
+
+                                      children: [
+                                        Text(
+                                          data[
+                                              "investmentName"],
+                                          style: GoogleFonts
+                                              .spaceMono(
+                                            color:
+                                                Colors.white,
+                                            fontSize:
+                                                15.5,
+                                            fontWeight:
+                                                FontWeight
+                                                    .w700,
+                                          ),
+                                        ),
+
+                                        const SizedBox(
+                                          height: 6,
+                                        ),
+
+                                        Text(
+                                          "${data["investmentType"]} · Qty $quantity",
+                                          style: GoogleFonts
+                                              .spaceMono(
+                                            color:
+                                                const Color(
+                                              0xFF8FA0BE,
+                                            ),
+                                            fontSize:
+                                                11.5,
+                                          ),
+                                        ),
+
+                                        const SizedBox(
+                                          height: 3,
+                                        ),
+
+                                        Text(
+                                          "Buy ₹${buyPrice.toStringAsFixed(2)}  ·  Now ₹${currentPrice.toStringAsFixed(2)}",
+                                          style: GoogleFonts
+                                              .spaceMono(
+                                            color:
+                                                const Color(
+                                              0xFF8FA0BE,
+                                            ),
+                                            fontSize:
+                                                11.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(
+                                    width: 10,
+                                  ),
+
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment
+                                            .end,
+
+                                    children: [
+                                      Text(
+                                        "₹${currentValue.toStringAsFixed(2)}",
+                                        style: GoogleFonts
+                                            .spaceMono(
+                                          color:
+                                              Colors.white,
+                                          fontSize:
+                                              14,
+                                          fontWeight:
+                                              FontWeight
+                                                  .w700,
+                                        ),
+                                      ),
+
+                                      const SizedBox(
+                                        height: 6,
+                                      ),
+
+                                      Container(
+                                        padding:
+                                            const EdgeInsets
+                                                .symmetric(
+                                          horizontal:
+                                              8,
+                                          vertical:
+                                              4,
+                                        ),
+
+                                        decoration:
+                                            BoxDecoration(
+                                          color: (isProfit
+                                                  ? const Color(
+                                                      0xFF3DDC97,
+                                                    )
+                                                  : const Color(
+                                                      0xFFFF6F61,
+                                                    ))
+                                              .withValues(
+                                            alpha: 0.14,
+                                          ),
+
+                                          borderRadius:
+                                              BorderRadius
+                                                  .circular(
+                                            8,
+                                          ),
+                                        ),
+
+                                        child: Text(
+                                          isProfit
+                                              ? "+${profitPercent.toStringAsFixed(2)}%"
+                                              : "-${profitPercent.abs().toStringAsFixed(2)}%",
+
+                                          style:
+                                              GoogleFonts
+                                                  .spaceMono(
+                                            color: isProfit
+                                                ? const Color(
+                                                    0xFF3DDC97,
+                                                  )
+                                                : const Color(
+                                                    0xFFFF6F61,
+                                                  ),
+                                            fontSize:
+                                                11,
+                                            fontWeight:
+                                                FontWeight
+                                                    .w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(
+                                    width: 6,
+                                  ),
+
+                                  const Icon(
+                                    Icons
+                                        .chevron_right_rounded,
+                                    color:
+                                        Color(0xFF6D7890),
+                                    size: 22,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
                       },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-                      child: Card(
-                        elevation: 8,
+  Widget _summaryRow(
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
+    return Row(
+      mainAxisAlignment:
+          MainAxisAlignment.spaceBetween,
 
-                        shadowColor:
-                            Colors.black26,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.spaceMono(
+            color:
+                const Color(0xFF8FA0BE),
+            fontSize: 11,
+            letterSpacing: 1,
+          ),
+        ),
 
-                        color:
-                            const Color(
-                          0xFF14253F,
-                        ),
-
-                        shape:
-                            RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius
-                                  .circular(
-                            24,
-                          ),
-                        ),
-
-                        margin:
-                            const EdgeInsets
-                                .symmetric(
-                          horizontal: 4,
-                          vertical: 8,
-                        ),
-
-                        child: ListTile(
-                          leading:
-                              const CircleAvatar(
-                            radius: 26,
-
-                            backgroundColor:
-                                Color(
-                              0xFF14C8B0,
-                            ),
-
-                            child: Icon(
-                              Icons
-                                  .show_chart_rounded,
-                              color:
-                                  Colors.white,
-                              size: 28,
-                            ),
-                          ),
-
-                          title: Text(
-                            (data[
-                                      "investmentName"] ??
-                                  "Investment")
-                                .toString(),
-
-                            style:
-                                const TextStyle(
-                              color:
-                                  Colors.white,
-                              fontSize: 19,
-                              fontWeight:
-                                  FontWeight
-                                      .w700,
-                            ),
-                          ),
-
-                          subtitle:
-                              Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .start,
-
-                            children: [
-                              const SizedBox(
-                                height: 5,
-                              ),
-
-                              Text(
-                                (data[
-                                          "investmentType"] ??
-                                      "")
-                                    .toString(),
-
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white70,
-                                ),
-                              ),
-
-                              /*
-                               * SYMBOL
-                               */
-
-                              if (symbol
-                                  .isNotEmpty)
-                                Text(
-                                  "Symbol : $symbol",
-
-                                  style:
-                                      const TextStyle(
-                                    color:
-                                        Colors.white54,
-                                    fontSize:
-                                        12,
-                                  ),
-                                ),
-
-                              Text(
-                                "Quantity : ${quantity.toInt()}",
-
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white70,
-                                ),
-                              ),
-
-                              Text(
-                                "Buy Price : ₹${buyPrice.toDouble().toStringAsFixed(2)}",
-
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white70,
-                                ),
-                              ),
-
-                              /*
-                               * CURRENT MARKET PRICE
-                               */
-
-                              Text(
-                                "Current Price : ₹${currentPrice.toStringAsFixed(2)}",
-
-                                style:
-                                    TextStyle(
-                                  color:
-                                      livePrices.containsKey(
-                                            symbol,
-                                          )
-                                          ? Colors
-                                              .greenAccent
-                                          : Colors
-                                              .white70,
-                                  fontWeight:
-                                      livePrices.containsKey(
-                                            symbol,
-                                          )
-                                          ? FontWeight
-                                              .bold
-                                          : FontWeight
-                                              .normal,
-                                ),
-                              ),
-
-                              Text(
-                                "Current Value : ₹${currentValue.toStringAsFixed(2)}",
-
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      Colors.white,
-                                  fontWeight:
-                                      FontWeight
-                                          .bold,
-                                ),
-                              ),
-
-                              const SizedBox(
-                                height: 4,
-                              ),
-
-                              Text(
-                                isProfit
-                                    ? "Profit : +₹${profitLoss.toStringAsFixed(2)} (${profitPercent.toStringAsFixed(2)}%)"
-                                    : "Loss : -₹${profitLoss.abs().toStringAsFixed(2)} (${profitPercent.abs().toStringAsFixed(2)}%)",
-
-                                style:
-                                    TextStyle(
-                                  color:
-                                      isProfit
-                                          ? Colors
-                                              .greenAccent
-                                          : Colors
-                                              .redAccent,
-
-                                  fontWeight:
-                                      FontWeight
-                                          .bold,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          trailing:
-                              Container(
-                            padding:
-                                const EdgeInsets
-                                    .all(
-                              6,
-                            ),
-
-                            decoration:
-                                BoxDecoration(
-                              color:
-                                  Colors.white10,
-
-                              borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                24,
-                              ),
-                            ),
-
-                            child:
-                                const Icon(
-                              Icons
-                                  .chevron_right_rounded,
-                              color:
-                                  Colors.white70,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+        Text(
+          value,
+          style: GoogleFonts.spaceMono(
+            color:
+                valueColor ?? Colors.white,
+            fontSize: 18,
+            fontWeight:
+                FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
