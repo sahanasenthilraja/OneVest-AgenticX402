@@ -21,7 +21,6 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _ambient;
 
   static const Color background = Color(0xFF020B1D);
-  static const Color panel = Color(0xFF101A31);
   static const Color teal = Color(0xFF10D8C3);
   static const Color blue = Color(0xFF3E7BFA);
   static const Color white = Color(0xFFF4F7FF);
