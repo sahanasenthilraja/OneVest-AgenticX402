@@ -11,6 +11,7 @@ import 'portfolio_analytics_screen.dart';
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/live_market_widget.dart';
+import 'ai_agent_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -1198,101 +1199,113 @@ class _DashboardScreenState
   // MOBILE BOTTOM NAV
   // ============================================================
 
-  Widget _buildBottomNavigation(
-    BuildContext context,
-  ) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: panelColor,
-        border: Border(
-          top: BorderSide(
-            color: borderColor,
+    Widget _buildBottomNavigation(
+      BuildContext context,
+    ) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: panelColor,
+          border: Border(
+            top: BorderSide(
+              color: borderColor,
+            ),
           ),
         ),
-      ),
-      child: BottomNavigationBar(
-        backgroundColor:
-            panelColor,
-        elevation: 0,
+        child: BottomNavigationBar(
+          backgroundColor: panelColor,
+          elevation: 0,
 
-        selectedItemColor: teal,
-        unselectedItemColor:
-            muted,
+          selectedItemColor: teal,
+          unselectedItemColor: muted,
 
-        currentIndex: 0,
+          currentIndex: 0,
 
-        type:
-            BottomNavigationBarType.fixed,
+          type: BottomNavigationBarType.fixed,
 
-        onTap: (index) {
-          if (index == 0) {
-            return;
-          }
+          onTap: (index) {
+            if (index == 0) {
+              return;
+            }
 
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const PortfolioScreen(),
-              ),
-            );
-          }
+            if (index == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PortfolioScreen(),
+                ),
+              );
+            }
 
-          if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const AiScreen(),
-              ),
-            );
-          }
+            // CENTER: AI MARKET AGENT
+            if (index == 2) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AiAgentScreen(),
+                ),
+              );
+            }
 
-          if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const ProfileScreen(),
-              ),
-            );
-          }
-        },
+            // FRIEND'S EXISTING AI SCREEN
+            if (index == 3) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AiScreen(),
+                ),
+              );
+            }
 
-        items: const [
-          BottomNavigationBarItem(
-            icon:
-                Icon(Icons.home),
-            label: "Home",
-          ),
+            if (index == 4) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfileScreen(),
+                ),
+              );
+            }
+          },
 
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons
-                  .account_balance_wallet,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: "Home",
             ),
-            label: "Portfolio",
-          ),
 
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.smart_toy,
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.account_balance_wallet,
+              ),
+              label: "Portfolio",
             ),
-            label: "AI",
-          ),
 
-          BottomNavigationBarItem(
-            icon:
-                Icon(Icons.person),
-            label: "Profile",
-          ),
-        ],
-      ),
-    );
+            // YOUR HACKATHON FEATURE
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.smart_toy,
+              ),
+              label: "AI Agent",
+            ),
+
+            // FRIEND'S AI
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.auto_awesome,
+              ),
+              label: "AI",
+            ),
+
+            BottomNavigationBarItem(
+              icon: Icon(
+                Icons.person,
+              ),
+              label: "Profile",
+            ),
+          ],
+        ),
+      );
+    }
   }
-}
-
 // ============================================================
 // ENTRANCE ANIMATION
 // ============================================================
