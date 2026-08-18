@@ -1,17 +1,30 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class AIService {
-  // 🔑 Replace with your Gemini API Key
-  static const String apiKey = "AQ.Ab8RN6LXx6vmJOj5Nm291_9i3do43gn9HeGoJSzkK999q1tNyw";
+  // ============================================================
+  // BACKEND URL
+  // ============================================================
 
-  static final GenerativeModel _model = GenerativeModel(
-    model: 'gemini-2.0-flash',
-    apiKey: apiKey,
-  );
+  static String get baseUrl {
+    if (kIsWeb) {
+      return "http://localhost:4021";
+    }
+
+    // Android Emulator -> host machine
+    return "http://10.0.2.2:4021";
+  }
+
+  // ============================================================
+  // AI ASSISTANT
+  // ============================================================
 
   static Future<String> askAI(String question) async {
     try {
-      final prompt = '''
+      final prompt =
+          '''
 You are OneVest AI, an intelligent investment assistant.
 
 Rules:
@@ -25,14 +38,42 @@ User Question:
 $question
 ''';
 
-      final response = await _model.generateContent(
-        [Content.text(prompt)],
-      );
+      debugPrint("AIService: sending request to backend");
 
-      return response.text ??
-          "Sorry, I couldn't generate a response.";
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl/api/ai"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"question": question, "prompt": prompt}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      debugPrint("AIService: backend status ${response.statusCode}");
+
+      if (response.statusCode != 200) {
+        debugPrint("AIService: backend error ${response.body}");
+
+        return "Sorry, the AI service is currently unavailable.";
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (data["success"] != true) {
+        return data["message"]?.toString() ??
+            "Sorry, I couldn't generate a response.";
+      }
+
+      final answer = data["answer"]?.toString();
+
+      if (answer == null || answer.trim().isEmpty) {
+        return "Sorry, I couldn't generate a response.";
+      }
+
+      return answer;
     } catch (e) {
-      return "Error: $e";
+      debugPrint("AIService error: $e");
+
+      return "Sorry, the AI service is currently unavailable.";
     }
   }
 }

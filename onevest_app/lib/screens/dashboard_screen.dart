@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,6 +14,7 @@ import 'portfolio_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/live_market_widget.dart';
 import 'ai_agent_screen.dart';
+import '../services/market_price_cache.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -31,6 +34,14 @@ class _DashboardScreenState
   Map<String, dynamic>? userData;
 
   bool isLoading = true;
+
+  // Live portfolio values calculated from the user's
+  // investments collection and the market-price API.
+  double _livePortfolio = 0.0;
+  double _totalInvestment = 0.0;
+
+  Timer? _portfolioTimer;
+  bool _isRefreshingPortfolio = false;
 
   static const Color backgroundColor =
       Color(0xFF020B1D);
@@ -65,6 +76,15 @@ class _DashboardScreenState
     });
 
     loadUser();
+
+    // Fetch the live portfolio value immediately.
+    _refreshDashboardPortfolio();
+
+    // Refresh the live portfolio value every 60 seconds.
+    _portfolioTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _refreshDashboardPortfolio(),
+    );
   }
 
   Future<void> loadUser() async {
@@ -95,8 +115,137 @@ class _DashboardScreenState
     });
   }
 
+  Future<void> _refreshDashboardPortfolio() async {
+  if (_isRefreshingPortfolio || !mounted) {
+    return;
+  }
+
+  try {
+    final currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      return;
+    }
+
+    _isRefreshingPortfolio = true;
+
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection("investments")
+            .where(
+              "userId",
+              isEqualTo: currentUser.uid,
+            )
+            .get();
+
+    if (snapshot.docs.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _livePortfolio = 0.0;
+        _totalInvestment = 0.0;
+      });
+
+      return;
+    }
+
+    final symbols = <String>{};
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      final symbol =
+          (data["symbol"] ?? "")
+              .toString()
+              .trim()
+              .toUpperCase();
+
+      if (symbol.isNotEmpty) {
+        symbols.add(symbol);
+      }
+    }
+
+    // ============================================================
+    // IMPORTANT:
+    // Use the SHARED market-price cache.
+    // PortfolioScreen uses the exact same cache.
+    // ============================================================
+
+    final marketCache =
+        MarketPriceCache.instance;
+
+    await marketCache.refresh(symbols);
+
+    double totalInvestment = 0.0;
+    double totalPortfolio = 0.0;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      final double buyPrice =
+          data["buyPrice"] is num
+              ? (data["buyPrice"] as num).toDouble()
+              : 0.0;
+
+      final int quantity =
+          data["quantity"] is num
+              ? (data["quantity"] as num).toInt()
+              : 0;
+
+      final symbol =
+          (data["symbol"] ?? "")
+              .toString()
+              .trim()
+              .toUpperCase();
+
+      final double? currentPrice =
+          marketCache.getPrice(symbol);
+
+      totalInvestment +=
+          buyPrice * quantity;
+
+      if (currentPrice != null) {
+        totalPortfolio +=
+            currentPrice * quantity;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _totalInvestment =
+          totalInvestment;
+
+      _livePortfolio =
+          totalPortfolio;
+    });
+
+    debugPrint(
+      "Dashboard total investment: "
+      "$totalInvestment",
+    );
+
+    debugPrint(
+      "Dashboard live portfolio: "
+      "$totalPortfolio",
+    );
+  } catch (e) {
+    debugPrint(
+      "Dashboard portfolio refresh error: $e",
+    );
+  } finally {
+    _isRefreshingPortfolio = false;
+  }
+}
+
   @override
   void dispose() {
+    _portfolioTimer?.cancel();
     quickActionController.dispose();
     super.dispose();
   }
@@ -146,11 +295,12 @@ class _DashboardScreenState
     final riskProfile =
         userData?["riskProfile"] ?? "Not Set";
 
-    final portfolio =
-        (userData?["portfolio"] ?? 0).toDouble();
+    // Use the same live calculation as PortfolioScreen.
+    // Do not read the stale users.portfolio / users.totalInvestment
+    // fields for the dashboard total.
+    final portfolio = _livePortfolio;
 
-    final investment =
-        (userData?["totalInvestment"] ?? 0).toDouble();
+    final investment = _totalInvestment;
 
     final width =
         MediaQuery.of(context).size.width;
@@ -931,6 +1081,7 @@ class _DashboardScreenState
                     );
 
                     await loadUser();
+                    await _refreshDashboardPortfolio();
                   },
                 ),
 

@@ -27,10 +27,12 @@ const app = new Hono();
 
 const avmAddress = process.env.AVM_ADDRESS;
 const marketApiKey = process.env.MARKET_API_KEY;
+const geminiApiKey = process.env.GEMINI_API_KEY;
 
 const facilitatorUrl =
   process.env.FACILITATOR_URL ||
   "https://facilitator.goplausible.xyz";
+
 
 if (!avmAddress) {
   console.error("Missing AVM_ADDRESS in .env");
@@ -39,6 +41,11 @@ if (!avmAddress) {
 
 if (!marketApiKey) {
   console.error("Missing MARKET_API_KEY in .env");
+  process.exit(1);
+}
+
+if (!geminiApiKey) {
+  console.error("Missing GEMINI_API_KEY in .env");
   process.exit(1);
 }
 
@@ -292,7 +299,7 @@ app.get(
 
       const changePercent =
         validPreviousClose !== null &&
-        validPreviousClose !== 0
+          validPreviousClose !== 0
           ? (change / validPreviousClose) * 100
           : 0;
 
@@ -315,8 +322,8 @@ app.get(
         marketTime:
           meta.regularMarketTime
             ? new Date(
-                meta.regularMarketTime * 1000
-              ).toISOString()
+              meta.regularMarketTime * 1000
+            ).toISOString()
             : null,
         updatedAt:
           new Date().toISOString(),
@@ -346,22 +353,17 @@ app.get(
       });
 
     } catch (error) {
-      console.error(
-        "Market intelligence error:",
-        error
-      );
+      console.error("AI endpoint error:", error);
 
       return c.json(
         {
           success: false,
-          error:
-            "Unable to retrieve market intelligence",
-          details:
-            error instanceof Error
+          message: "AI endpoint error.",
+          error: error instanceof Error
               ? error.message
               : String(error),
         },
-        500
+        500,
       );
     }
   }
@@ -500,8 +502,8 @@ async function getGoldPriceInrPer10g() {
   const changePercent =
     previousCloseInrPer10g !== 0
       ? (change /
-          previousCloseInrPer10g) *
-        100
+        previousCloseInrPer10g) *
+      100
       : 0;
 
   return {
@@ -524,9 +526,9 @@ async function getGoldPriceInrPer10g() {
     marketTime:
       goldMeta.regularMarketTime
         ? new Date(
-            goldMeta.regularMarketTime *
-              1000
-          ).toISOString()
+          goldMeta.regularMarketTime *
+          1000
+        ).toISOString()
         : null,
 
     updatedAt:
@@ -696,8 +698,8 @@ app.get(
         const changePercent =
           previousClose !== 0
             ? (change /
-                previousClose) *
-              100
+              previousClose) *
+            100
             : 0;
 
         results.push({
@@ -718,9 +720,9 @@ app.get(
           marketTime:
             meta.regularMarketTime
               ? new Date(
-                  meta.regularMarketTime *
-                    1000
-                ).toISOString()
+                meta.regularMarketTime *
+                1000
+              ).toISOString()
               : null,
         });
       }
@@ -941,8 +943,8 @@ app.get(
       const changePercent =
         previousClose !== 0
           ? (change /
-              previousClose) *
-            100
+            previousClose) *
+          100
           : 0;
 
       return c.json({
@@ -967,9 +969,9 @@ app.get(
           marketTime:
             meta.regularMarketTime
               ? new Date(
-                  meta.regularMarketTime *
-                    1000
-                ).toISOString()
+                meta.regularMarketTime *
+                1000
+              ).toISOString()
               : null,
 
           updatedAt:
@@ -1072,7 +1074,140 @@ app.get(
     });
   }
 );
+// ============================================================
+// GEMINI AI ASSISTANT
+// ============================================================
 
+app.post("/api/ai", async (c) => {
+  try {
+    const body = await c.req.json();
+
+    const question =
+      typeof body?.question === "string"
+        ? body.question.trim()
+        : "";
+
+    const prompt =
+      typeof body?.prompt === "string"
+        ? body.prompt.trim()
+        : "";
+
+    if (!question) {
+      return c.json(
+        {
+          success: false,
+          message: "Question is required.",
+        },
+        400,
+      );
+    }
+
+    const finalPrompt = prompt || `
+You are OneVest AI, an intelligent investment assistant.
+
+Rules:
+- Answer only finance and investment related questions.
+- Keep answers short (3-6 lines).
+- Be beginner friendly.
+- If asked something unrelated, politely say you only answer investment questions.
+- Give practical suggestions wherever possible.
+
+User Question:
+${question}
+`;
+
+    console.log("AI request received");
+
+    const geminiResponse = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiApiKey!,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: finalPrompt,
+                },
+              ],
+            },
+          ],
+        }),
+      },
+    );
+
+    const geminiData = await geminiResponse.json();
+
+    console.log(
+      "Gemini API status:",
+      geminiResponse.status,
+    );
+
+    if (!geminiResponse.ok) {
+      console.error(
+        "Gemini API error:",
+        JSON.stringify(geminiData),
+      );
+
+      return c.json(
+        {
+          success: false,
+          message: "Gemini API request failed.",
+          status: geminiResponse.status,
+          error:
+            geminiData?.error?.message ??
+            "Unknown Gemini API error.",
+        },
+        502,
+      );
+    }
+
+    const answer =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (
+      typeof answer !== "string" ||
+      answer.trim().length === 0
+    ) {
+      console.error(
+        "Gemini returned no text:",
+        JSON.stringify(geminiData),
+      );
+
+      return c.json(
+        {
+          success: false,
+          message: "Gemini returned an empty response.",
+        },
+        502,
+      );
+    }
+
+    console.log("AI response generated successfully");
+
+    return c.json({
+      success: true,
+      answer: answer.trim(),
+    });
+  } catch (error) {
+    console.error(
+      "AI endpoint error:",
+      error,
+    );
+
+    return c.json(
+      {
+        success: false,
+        message: "AI service is currently unavailable.",
+      },
+      500,
+    );
+  }
+});
 /*
  * ============================================================
  * Start server

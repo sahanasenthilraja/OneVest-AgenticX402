@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'investment_details_screen.dart';
 import '../widgets/app_sidebar.dart';
+import '../services/market_price_cache.dart';
 
 class PortfolioScreen extends StatefulWidget {
   const PortfolioScreen({super.key});
@@ -21,11 +25,143 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
 
   String searchText = "";
 
+  final Map<String, double> _livePrices = {};
+  final Map<String, double> _liveChanges = {};
+  Timer? _priceTimer;
+  bool _isRefreshingPrices = false;
+  String _lastSymbolKey = "";
+
+  // Your market-data API.
+  // Android emulator -> host machine uses 10.0.2.2.
+  // Web/Desktop -> localhost.
+
+  @override
+  void initState() {
+    super.initState();
+
+    _priceTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _refreshPrices(),
+    );
+  }
+
   @override
   void dispose() {
+    _priceTimer?.cancel();
     searchController.dispose();
     super.dispose();
   }
+
+Future<void> _refreshPrices() async {
+  if (_isRefreshingPrices || !mounted) {
+    return;
+  }
+
+  try {
+    final currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      return;
+    }
+
+    _isRefreshingPrices = true;
+
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection("investments")
+            .where(
+              "userId",
+              isEqualTo: currentUser.uid,
+            )
+            .get();
+
+    final symbols = <String>{};
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      final symbol =
+          (data["symbol"] ?? "")
+              .toString()
+              .trim()
+              .toUpperCase();
+
+      if (symbol.isNotEmpty) {
+        symbols.add(symbol);
+      }
+    }
+
+    if (symbols.isEmpty) {
+      return;
+    }
+
+    // ============================================================
+    // IMPORTANT:
+    // Use the SAME shared cache as DashboardScreen.
+    // ============================================================
+
+    final marketCache =
+        MarketPriceCache.instance;
+
+    await marketCache.refresh(symbols);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      for (final symbol in symbols) {
+        final price =
+            marketCache.getPrice(symbol);
+
+        final change =
+            marketCache.getChange(symbol);
+
+        if (price != null) {
+          _livePrices[symbol] = price;
+        }
+
+        if (change != null) {
+          _liveChanges[symbol] = change;
+        }
+      }
+    });
+
+    debugPrint(
+      "Portfolio prices updated from shared cache",
+    );
+  } catch (e) {
+    debugPrint(
+      "Portfolio price refresh error: $e",
+    );
+  } finally {
+    _isRefreshingPrices = false;
+  }
+}
+
+double? _currentPrice(
+  Map<String, dynamic> data,
+) {
+  final symbol =
+      (data["symbol"] ?? "")
+          .toString()
+          .trim()
+          .toUpperCase();
+
+  // Always prefer the latest price from the
+  // Yahoo Finance-backed market API.
+  if (symbol.isNotEmpty &&
+      _livePrices.containsKey(symbol)) {
+    return _livePrices[symbol];
+  }
+
+  // Do NOT use buyPrice as the current market price.
+  // If the live API hasn't returned a price yet,
+  // return null so the UI can indicate that
+  // the current market price is unavailable.
+  return null;
+}
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +282,36 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
 
         final docs = snapshot.data!.docs;
 
+        // Fetch real current prices as soon as Firestore
+        // provides the user's holdings. The symbol key prevents
+        // rebuilds caused by price updates from starting another
+        // request loop.
+        final symbolKey = docs
+            .map((doc) {
+              final data =
+                  doc.data()
+                      as Map<String, dynamic>;
+
+              return (data["symbol"] ?? "")
+                  .toString()
+                  .trim()
+                  .toUpperCase();
+            })
+            .where((symbol) => symbol.isNotEmpty)
+            .toList()
+          ..sort();
+
+        final joinedSymbolKey =
+            symbolKey.join("|");
+
+        if (joinedSymbolKey != _lastSymbolKey) {
+          _lastSymbolKey = joinedSymbolKey;
+
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _refreshPrices(),
+          );
+        }
+
         final filteredDocs = docs.where((doc) {
           final data =
               doc.data() as Map<String, dynamic>;
@@ -178,17 +344,17 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
           final double buyPrice =
               (data["buyPrice"] as num).toDouble();
 
-          final double currentPrice =
-              data.containsKey("currentPrice")
-                  ? (data["currentPrice"] as num)
-                      .toDouble()
-                  : buyPrice;
+          final double? currentPrice =
+              _currentPrice(data);
 
           final int quantity =
               (data["quantity"] as num).toInt();
 
           totalInvested += buyPrice * quantity;
-          totalPortfolio += currentPrice * quantity;
+
+          if (currentPrice != null) {
+            totalPortfolio += currentPrice * quantity;
+          }
         }
 
         final double overallProfit =
@@ -413,28 +579,23 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                             (data["buyPrice"] as num)
                                 .toDouble();
 
-                        final double currentPrice =
-                            data.containsKey(
-                                    "currentPrice")
-                                ? (data["currentPrice"]
-                                        as num)
-                                    .toDouble()
-                                : buyPrice;
+                        final double? currentPrice =
+                            _currentPrice(data);
 
                         final int quantity =
-                            (data["quantity"] as num)
-                                .toInt();
+                            (data["quantity"] as num).toInt();
 
                         final double investedAmount =
                             buyPrice * quantity;
 
                         final double currentValue =
-                            currentPrice * quantity;
+                            currentPrice != null
+                                ? currentPrice * quantity
+                                : 0;
 
                         final double profitLoss =
                             currentValue -
                                 investedAmount;
-
                         final double profitPercent =
                             investedAmount == 0
                                 ? 0
@@ -589,8 +750,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                                         ),
 
                                         Text(
-                                          "Buy ₹${buyPrice.toStringAsFixed(2)}  ·  Now ₹${currentPrice.toStringAsFixed(2)}",
-                                          style: GoogleFonts
+                                              "Buy ₹${buyPrice.toStringAsFixed(2)}  ·  "
+                                              "Now ${currentPrice != null ? "₹${currentPrice.toStringAsFixed(2)}" : "Loading..."}",                                          style: GoogleFonts
                                               .spaceMono(
                                             color:
                                                 const Color(

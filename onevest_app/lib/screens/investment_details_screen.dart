@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'edit_investment_screen.dart';
 import '../widgets/app_sidebar.dart';
 
-class InvestmentDetailsScreen extends StatelessWidget {
+class InvestmentDetailsScreen extends StatefulWidget {
   final String investmentId;
   final Map<String, dynamic> investmentData;
 
@@ -14,6 +19,177 @@ class InvestmentDetailsScreen extends StatelessWidget {
     required this.investmentId,
     required this.investmentData,
   });
+
+  @override
+  State<InvestmentDetailsScreen> createState() =>
+      _InvestmentDetailsScreenState();
+}
+
+class _InvestmentDetailsScreenState
+    extends State<InvestmentDetailsScreen> {
+  String get investmentId => widget.investmentId;
+
+  Map<String, dynamic> get investmentData =>
+      widget.investmentData;
+
+  double? liveCurrentPrice;
+  double? liveChangePercent;
+  bool isLoadingLivePrice = false;
+
+  Timer? livePriceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    fetchLiveCurrentPrice();
+
+    livePriceTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => fetchLiveCurrentPrice(),
+    );
+  }
+
+  @override
+  void dispose() {
+    livePriceTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> fetchLiveCurrentPrice() async {
+    final String symbol =
+        (investmentData["symbol"] ??
+                investmentData["stockSymbol"] ??
+                investmentData["ticker"] ??
+                "")
+            .toString()
+            .trim()
+            .toUpperCase();
+
+    if (symbol.isEmpty) {
+      debugPrint(
+        "Investment Details: no market symbol found.",
+      );
+      return;
+    }
+
+    if (isLoadingLivePrice) return;
+
+    if (mounted) {
+      setState(() {
+        isLoadingLivePrice = true;
+      });
+    }
+
+    try {
+      final Uri uri = Uri.parse(
+        "http://10.0.2.2:4021/api/market-price"
+        "?symbol=${Uri.encodeQueryComponent(symbol)}",
+      );
+
+      debugPrint(
+        "Investment Details: fetching live price for $symbol",
+      );
+
+      final http.Response response =
+          await http.get(uri);
+
+      debugPrint(
+        "Investment Details: API status ${response.statusCode}",
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          "Investment Details: API error ${response.body}",
+        );
+        return;
+      }
+
+      final dynamic decoded =
+          jsonDecode(response.body);
+
+      double? price;
+      double? changePercent;
+
+      if (decoded is Map<String, dynamic>) {
+        final dynamic market = decoded["market"];
+        final dynamic data = decoded["data"];
+
+        final dynamic directPrice =
+            decoded["price"];
+        final dynamic directChange =
+            decoded["changePercent"] ??
+                decoded["change"];
+
+        if (directPrice is num) {
+          price = directPrice.toDouble();
+        }
+
+        if (directChange is num) {
+          changePercent = directChange.toDouble();
+        }
+
+        if (market is Map) {
+          final dynamic marketPrice =
+              market["price"];
+          final dynamic marketChange =
+              market["changePercent"] ??
+                  market["change"];
+
+          if (marketPrice is num) {
+            price = marketPrice.toDouble();
+          }
+
+          if (marketChange is num) {
+            changePercent = marketChange.toDouble();
+          }
+        }
+
+        if (data is Map) {
+          final dynamic dataPrice =
+              data["price"];
+          final dynamic dataChange =
+              data["changePercent"] ??
+                  data["change"];
+
+          if (dataPrice is num) {
+            price = dataPrice.toDouble();
+          }
+
+          if (dataChange is num) {
+            changePercent = dataChange.toDouble();
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      if (price != null && price > 0) {
+        setState(() {
+          liveCurrentPrice = price;
+          liveChangePercent = changePercent;
+        });
+
+        debugPrint(
+          "Investment Details: $symbol live price = $price",
+        );
+      } else {
+        debugPrint(
+          "Investment Details: no valid price in API response.",
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        "Investment Details: market API error: $e",
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoadingLivePrice = false;
+        });
+      }
+    }
+  }
 
   // ============================================================
   // COLORS
@@ -407,10 +583,6 @@ class InvestmentDetailsScreen extends StatelessWidget {
       },
     );
 
-    amountController.dispose();
-    unitsController.dispose();
-    priceController.dispose();
-
     if (added == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -751,10 +923,19 @@ class InvestmentDetailsScreen extends StatelessWidget {
     final double buyPrice =
         getDouble(investmentData["buyPrice"]);
 
-    final double currentValue =
+    final double storedCurrentPrice =
         getDouble(
-      investmentData["currentValue"],
+      investmentData["currentPrice"],
     );
+
+    final double currentPrice =
+        liveCurrentPrice ??
+        (storedCurrentPrice > 0
+            ? storedCurrentPrice
+            : buyPrice);
+
+    final double currentValue =
+        currentPrice * quantity;
 
     final double invested =
         quantity * buyPrice;
@@ -1533,7 +1714,9 @@ final Widget content =
 
                     informationCard(
                       "Current Price",
-                      "₹${investmentData["currentPrice"] ?? investmentData["buyPrice"] ?? 0}",
+                      liveCurrentPrice != null
+                          ? "₹${liveCurrentPrice!.toStringAsFixed(2)}"
+                          : "Loading...",
                       Icons.show_chart_rounded,
                     ),
 

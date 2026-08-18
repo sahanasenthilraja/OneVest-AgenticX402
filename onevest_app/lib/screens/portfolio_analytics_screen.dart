@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+
+import 'package:http/http.dart' as http;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,7 +16,7 @@ import '../widgets/app_sidebar.dart';
 import 'add_investment_screen.dart';
 import 'portfolio_screen.dart';
 // ============================================================
-// FONT HELPERS — shared across this file so every label/value
+// FONT HELPERS â€” shared across this file so every label/value
 // uses the same Press Start 2P / Space Mono pairing as the
 // rest of the app instead of the system default.
 // ============================================================
@@ -297,6 +301,170 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
   String? selectedAssetType;
   final GlobalKey healthKey = GlobalKey();
 
+  // ============================================================
+  // LIVE MARKET PRICES
+  // ============================================================
+
+  final Map<String, double> _livePrices = {};
+  Timer? _marketTimer;
+  bool _marketLoading = false;
+
+  String get _marketBaseUrl {
+    // Android emulator -> host machine.
+    // Windows / web / desktop -> localhost.
+    if (const bool.fromEnvironment('dart.library.io')) {
+      return 'http://10.0.2.2:4021';
+    }
+    return 'http://localhost:4021';
+  }
+
+  String? _marketSymbol(Map<String, dynamic> data) {
+    final candidates = [
+      data['symbol'],
+      data['ticker'],
+      data['stockSymbol'],
+      data['marketSymbol'],
+      data['yahooSymbol'],
+    ];
+
+    for (final candidate in candidates) {
+      final value = candidate?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    final name = (data['name'] ?? data['assetName'] ?? '')
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    final type = (data['investmentType'] ?? '').toString().trim().toUpperCase();
+
+    if (name.contains('RELIANCE')) return 'RELIANCE.NS';
+    if (name.contains('INFY') || name.contains('INFOSYS')) return 'INFY.NS';
+    if (name.contains('NIFTY')) return '^NSEI';
+    if (name.contains('SENSEX')) return '^BSESN';
+    if (name.contains('BITCOIN') || name == 'BTC') return 'BTC-INR';
+    if (name.contains('ETHEREUM') || name == 'ETH') return 'ETH-INR';
+    if (name.contains('GOLD') || type == 'GOLD') return 'GC=F';
+
+    return null;
+  }
+
+  Future<void> _fetchLivePrices() async {
+    if (!mounted || _marketLoading) return;
+
+    final symbols = <String>{};
+
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final symbol = _marketSymbol(data);
+      if (symbol != null) symbols.add(symbol);
+    }
+
+    if (symbols.isEmpty) return;
+
+    setState(() => _marketLoading = true);
+
+    try {
+      final updates = <String, double>{};
+
+      await Future.wait(
+        symbols.map((symbol) async {
+          try {
+            final uri = Uri.parse(
+              '$_marketBaseUrl/api/market-price'
+              '?symbol=${Uri.encodeComponent(symbol)}',
+            );
+
+            debugPrint('Analytics: fetching $symbol');
+
+            final response = await http.get(uri).timeout(
+              const Duration(seconds: 10),
+            );
+
+            debugPrint(
+              'Analytics: $symbol -> ${response.statusCode}',
+            );
+
+            if (response.statusCode != 200) return;
+
+            final decoded = jsonDecode(response.body);
+            if (decoded is! Map<String, dynamic>) return;
+
+            final market = decoded['market'];
+            if (market is! Map<String, dynamic>) return;
+
+            final price = PortfolioAnalyticsScreen.safeDouble(
+              market['price'],
+            );
+
+            if (price > 0) {
+              updates[symbol] = price;
+            }
+          } catch (e) {
+            debugPrint('Analytics: failed $symbol -> $e');
+          }
+        }),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _livePrices
+          ..clear()
+          ..addAll(updates);
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _marketLoading = false);
+      }
+    }
+  }
+
+  double _currentPrice(
+    Map<String, dynamic> data,
+    double buyPrice,
+  ) {
+    final symbol = _marketSymbol(data);
+
+    if (symbol != null) {
+      final live = _livePrices[symbol];
+      if (live != null && live > 0) {
+        return live;
+      }
+    }
+
+    // Only use Firestore's stored currentPrice when live API data
+    // is unavailable. Never invent a market price here.
+    final stored = PortfolioAnalyticsScreen.safeDouble(
+      data['currentPrice'],
+    );
+
+    return stored > 0 ? stored : buyPrice;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadGoal();
+    _fetchLivePrices();
+
+    _marketTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _fetchLivePrices(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _marketTimer?.cancel();
+    super.dispose();
+  }
+
+
   final List<String> timeframes = const [
     '1W',
     '1M',
@@ -304,12 +472,6 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
     '1Y',
     'All',
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadGoal();
-  }
 
   Future<void> _loadGoal() async {
     try {
@@ -406,11 +568,10 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
         data['buyPrice'],
       );
 
-      final double currentPrice = data['currentPrice'] != null
-          ? PortfolioAnalyticsScreen.safeDouble(
-              data['currentPrice'],
-            )
-          : buyPrice;
+      final double currentPrice = _currentPrice(
+        data,
+        buyPrice,
+      );
 
       final int quantity = PortfolioAnalyticsScreen.safeInt(
         data['quantity'],
@@ -457,13 +618,15 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
     for (int i = 0; i < sortedDocs.length; i++) {
       final data = sortedDocs[i].data() as Map<String, dynamic>;
       final buyPrice = PortfolioAnalyticsScreen.safeDouble(data['buyPrice']);
-      final currentPrice = data['currentPrice'] != null
-          ? PortfolioAnalyticsScreen.safeDouble(data['currentPrice'])
-          : buyPrice;
+      final currentPrice = _currentPrice(
+        data,
+        buyPrice,
+      );
       final quantity = PortfolioAnalyticsScreen.safeInt(data['quantity']);
-      final value = data['currentValue'] != null
-          ? PortfolioAnalyticsScreen.safeDouble(data['currentValue'])
-          : currentPrice * quantity;
+
+      // Performance uses the live market value as well. Do not use a
+      // stale stored currentValue when a live price is available.
+      final value = currentPrice * quantity;
       runningValue += value;
       performanceData.add(
         PerformanceData(
@@ -825,7 +988,9 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'PORTFOLIO ACTIVE',
+                    _marketLoading
+                        ? 'UPDATING MARKET'
+                        : 'LIVE MARKET',
                     style: _mono(
                       11,
                       color: green,
@@ -936,7 +1101,7 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
           const SizedBox(height: 7),
 
           Text(
-            '₹${totalValue.toStringAsFixed(2)}',
+            'â‚¹${totalValue.toStringAsFixed(2)}',
             style: _mono(
               40,
               color: white,
@@ -953,14 +1118,14 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
             children: [
               _heroMetric(
                 title: 'INVESTED',
-                value: '₹${totalInvested.toStringAsFixed(0)}',
+                value: 'â‚¹${totalInvested.toStringAsFixed(0)}',
                 icon: Icons.savings_rounded,
                 color: purple,
               ),
               _heroMetric(
                 title: 'PROFIT / LOSS',
                 value:
-                    '${positive ? '+' : '-'}₹${profitLoss.abs().toStringAsFixed(0)}',
+                    '${positive ? '+' : '-'}â‚¹${profitLoss.abs().toStringAsFixed(0)}',
                 icon: positive
                     ? Icons.trending_up_rounded
                     : Icons.trending_down_rounded,
@@ -1052,8 +1217,8 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
     final cards = [
       _KpiData(
         title: 'PORTFOLIO VALUE',
-        value: '₹${totalValue.toStringAsFixed(0)}',
-        subtitle: 'Current market value · tap to open',
+        value: 'â‚¹${totalValue.toStringAsFixed(0)}',
+        subtitle: 'Current market value Â· tap to open',
         icon: Icons.account_balance_wallet_rounded,
         color: teal,
         onTap: () {
@@ -1062,14 +1227,14 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
       ),
       _KpiData(
         title: 'TOTAL INVESTED',
-        value: '₹${totalInvested.toStringAsFixed(0)}',
+        value: 'â‚¹${totalInvested.toStringAsFixed(0)}',
         subtitle: 'Capital deployed',
         icon: Icons.savings_rounded,
         color: purple,
       ),
       _KpiData(
         title: 'PROFIT / LOSS',
-        value: '${positive ? '+' : '-'}₹${profitLoss.abs().toStringAsFixed(0)}',
+        value: '${positive ? '+' : '-'}â‚¹${profitLoss.abs().toStringAsFixed(0)}',
         subtitle: positive ? 'Portfolio is positive' : 'Portfolio is negative',
         icon: positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
         color: positive ? green : red,
@@ -1077,7 +1242,7 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
       _KpiData(
         title: 'HEALTH SCORE',
         value: '$healthScore / 100',
-        subtitle: 'Portfolio quality · tap to view',
+        subtitle: 'Portfolio quality Â· tap to view',
         icon: Icons.favorite_rounded,
         color: green,
         onTap: _scrollToHealth,
@@ -1203,7 +1368,7 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
                       Container(width: 11, height: 11, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
                       const SizedBox(width: 10),
                       Expanded(child: Text(entry.key, style: _mono(14, color: white, weight: FontWeight.w600))),
-                      Text('₹${entry.value.toStringAsFixed(0)}', style: _mono(14, color: white, weight: FontWeight.bold)),
+                      Text('â‚¹${entry.value.toStringAsFixed(0)}', style: _mono(14, color: white, weight: FontWeight.bold)),
                       const SizedBox(width: 14),
                       SizedBox(width: 55, child: Text('${percentage.toStringAsFixed(1)}%', textAlign: TextAlign.right, style: _mono(13, color: color, weight: FontWeight.bold))),
                     ],
@@ -1242,7 +1407,7 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
           style: _mono(17, color: white, weight: FontWeight.bold),
           cursorColor: teal,
           decoration: InputDecoration(
-            prefixText: '₹ ',
+            prefixText: 'â‚¹ ',
             prefixStyle: _mono(17, color: teal, weight: FontWeight.bold),
             hintText: 'Example: 1000000',
             hintStyle: _mono(13, color: muted),
@@ -1383,21 +1548,21 @@ class _AnalyticsBodyState extends State<_AnalyticsBody> {
 
           _valueRow(
             'Current value',
-            '₹${totalValue.toStringAsFixed(0)}',
+            'â‚¹${totalValue.toStringAsFixed(0)}',
           ),
 
           const SizedBox(height: 11),
 
           _valueRow(
             'Target',
-            '₹${goalAmount.toStringAsFixed(0)}',
+            'â‚¹${goalAmount.toStringAsFixed(0)}',
           ),
 
           const SizedBox(height: 11),
 
           _valueRow(
             'Remaining',
-            '₹${remaining.toStringAsFixed(0)}',
+            'â‚¹${remaining.toStringAsFixed(0)}',
           ),
         ],
       ),
@@ -1850,7 +2015,7 @@ double maxY = filtered.map((e) => e.value).fold<double>(
             children: [
               Text('CURRENT VALUE', style: _mono(10, color: muted, weight: FontWeight.bold, spacing: 1)),
               const Spacer(),
-              Text('₹${totalValue.toStringAsFixed(2)}', style: _mono(25, color: white, weight: FontWeight.w900)),
+              Text('â‚¹${totalValue.toStringAsFixed(2)}', style: _mono(25, color: white, weight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 22),
@@ -1904,7 +2069,7 @@ double maxY = filtered.map((e) => e.value).fold<double>(
                       if (index < 0 || index >= filtered.length) return null;
                       final date = filtered[index].date;
                       return LineTooltipItem(
-                        '${date.day}/${date.month}/${date.year}\n₹${spot.y.toStringAsFixed(0)}',
+                        '${date.day}/${date.month}/${date.year}\nâ‚¹${spot.y.toStringAsFixed(0)}',
                         _mono(12, color: white, weight: FontWeight.bold),
                       );
                     }).toList(),
@@ -1938,18 +2103,18 @@ double maxY = filtered.map((e) => e.value).fold<double>(
 
   String _formatValue(double value) {
     if (value >= 10000000) {
-      return '₹${(value / 10000000).toStringAsFixed(1)}Cr';
+      return 'â‚¹${(value / 10000000).toStringAsFixed(1)}Cr';
     }
 
     if (value >= 100000) {
-      return '₹${(value / 100000).toStringAsFixed(1)}L';
+      return 'â‚¹${(value / 100000).toStringAsFixed(1)}L';
     }
 
     if (value >= 1000) {
-      return '₹${(value / 1000).toStringAsFixed(1)}K';
+      return 'â‚¹${(value / 1000).toStringAsFixed(1)}K';
     }
 
-    return '₹${value.toStringAsFixed(0)}';
+    return 'â‚¹${value.toStringAsFixed(0)}';
   }
 
   // ============================================================
@@ -1996,7 +2161,7 @@ double maxY = filtered.map((e) => e.value).fold<double>(
                         children: [
                           Text(entry.key, style: _mono(15, color: white, weight: FontWeight.w600)),
                           const Spacer(),
-                          Text('₹${entry.value.toStringAsFixed(0)}', style: _mono(15, color: white, weight: FontWeight.bold)),
+                          Text('â‚¹${entry.value.toStringAsFixed(0)}', style: _mono(15, color: white, weight: FontWeight.bold)),
                           const SizedBox(width: 15),
                           SizedBox(width: 60, child: Text('${percent.toStringAsFixed(1)}%', textAlign: TextAlign.right, style: _mono(13, color: color, weight: FontWeight.bold))),
                         ],
@@ -2056,7 +2221,7 @@ double maxY = filtered.map((e) => e.value).fold<double>(
   }
 
   // ============================================================
-  // SECTION TITLE — used by every card, so this one edit point
+  // SECTION TITLE â€” used by every card, so this one edit point
   // keeps all section headers themed consistently.
   // ============================================================
 
@@ -2431,7 +2596,7 @@ class TransactionInsights extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '₹${(bought - sold).toStringAsFixed(2)}',
+                      'â‚¹${(bought - sold).toStringAsFixed(2)}',
                       style: _mono(20, color: white, weight: FontWeight.w900),
                     ),
                   ],
@@ -2563,7 +2728,7 @@ class TransactionInsights extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '₹${amount.toStringAsFixed(0)}',
+                  'â‚¹${amount.toStringAsFixed(0)}',
                   overflow: TextOverflow.ellipsis,
                   style: _mono(19, color: color, weight: FontWeight.w900),
                 ),
