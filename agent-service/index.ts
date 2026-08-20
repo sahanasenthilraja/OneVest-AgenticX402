@@ -1,6 +1,8 @@
 import { config } from "dotenv";
 import algosdk from "algosdk";
 
+import { askOneVestAI } from "./onevest-ai.js";
+
 import {
   x402Client,
   x402HTTPClient,
@@ -16,6 +18,7 @@ import { wrapFetchWithPayment } from "@x402-avm/fetch";
 
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { cors } from "hono/cors";
 
 config();
 
@@ -35,7 +38,7 @@ const PORT =
 
 if (!MNEMONIC) {
   throw new Error(
-    "Missing AGENT_MNEMONIC in .env"
+    "Missing AGENT_MNEMONIC in .env",
   );
 }
 
@@ -45,11 +48,11 @@ if (!MNEMONIC) {
 // ============================================================
 
 function mnemonicToPrivateKeyBase64(
-  mnemonic: string
+  mnemonic: string,
 ): string {
   const account =
     algosdk.mnemonicToSecretKey(
-      mnemonic
+      mnemonic,
     );
 
   const seed =
@@ -65,7 +68,7 @@ function mnemonicToPrivateKeyBase64(
     ]);
 
   return privateKey.toString(
-    "base64"
+    "base64",
   );
 }
 
@@ -75,12 +78,12 @@ function mnemonicToPrivateKeyBase64(
 
 const privateKeyBase64 =
   mnemonicToPrivateKeyBase64(
-    MNEMONIC
+    MNEMONIC,
   );
 
 const avmSigner =
   toClientAvmSigner(
-    privateKeyBase64
+    privateKeyBase64,
   );
 
 // ============================================================
@@ -88,30 +91,35 @@ const avmSigner =
 // ============================================================
 
 console.log(
-  "================================="
+  "=================================",
 );
 
 console.log(
-  "OneVest x402 Agent API"
+  "OneVest x402 + AI Agent API",
 );
 
 console.log(
-  "================================="
+  "=================================",
 );
 
 console.log(
   "Agent payer:",
-  avmSigner.address
+  avmSigner.address,
 );
 
 console.log(
   "x402 service:",
-  SERVICE_URL
+  SERVICE_URL,
 );
 
 console.log(
   "Agent API port:",
-  PORT
+  PORT,
+);
+
+console.log(
+  "Gemini AI:",
+  "Enabled",
 );
 
 // ============================================================
@@ -128,8 +136,8 @@ const client =
 client.register(
   ALGORAND_TESTNET_CAIP2,
   new ExactAvmScheme(
-    avmSigner
-  )
+    avmSigner,
+  ),
 );
 
 // ============================================================
@@ -140,7 +148,7 @@ client.register(
 const fetchWithPayment =
   wrapFetchWithPayment(
     fetch,
-    client
+    client,
   );
 
 // ============================================================
@@ -149,6 +157,14 @@ const fetchWithPayment =
 
 const app =
   new Hono();
+  app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Content-Type"],
+  }),
+);
 
 // ============================================================
 // HEALTH ENDPOINT
@@ -161,7 +177,7 @@ app.get(
       status: "ok",
 
       service:
-        "OneVest x402 Agent",
+        "OneVest x402 + AI Agent",
 
       network:
         "Algorand TestNet",
@@ -174,8 +190,148 @@ app.get(
 
       port:
         PORT,
+
+      gemini:
+        "enabled",
     });
-  }
+  },
+);
+
+// ============================================================
+// ONEVEST AI CHAT ENDPOINT
+// ============================================================
+//
+// Flutter will eventually call:
+//
+// POST /api/ai/chat
+//
+// Request:
+//
+// {
+//   "message": "Explain diversification"
+// }
+//
+// Response:
+//
+// {
+//   "success": true,
+//   "model": "gemini-2.5-flash",
+//   "answer": "..."
+// }
+//
+// ============================================================
+
+app.post(
+  "/api/ai/chat",
+  async (c) => {
+    try {
+      // --------------------------------------------------------
+      // READ REQUEST BODY
+      // --------------------------------------------------------
+
+      const body =
+        await c.req.json();
+
+      const message =
+        typeof body?.message === "string"
+          ? body.message.trim()
+          : "";
+
+      // --------------------------------------------------------
+      // VALIDATE MESSAGE
+      // --------------------------------------------------------
+
+      if (!message) {
+        return c.json(
+          {
+            success: false,
+
+            error:
+              "Missing message",
+          },
+          400,
+        );
+      }
+
+      // --------------------------------------------------------
+      // LOG AI REQUEST
+      // --------------------------------------------------------
+
+      console.log("");
+
+      console.log(
+        "=================================",
+      );
+
+      console.log(
+        "OneVest AI request",
+      );
+
+      console.log(
+        "Message:",
+        message,
+      );
+
+      console.log(
+        "=================================",
+      );
+
+      // --------------------------------------------------------
+      // SEND REQUEST TO GEMINI
+      // --------------------------------------------------------
+
+      const answer =
+        await askOneVestAI(
+          message,
+        );
+
+      // --------------------------------------------------------
+      // LOG RESPONSE
+      // --------------------------------------------------------
+
+      console.log(
+        "Gemini response received.",
+      );
+
+      // --------------------------------------------------------
+      // RETURN RESPONSE TO FLUTTER
+      // --------------------------------------------------------
+
+      return c.json({
+        success: true,
+
+        model:
+          "gemini-2.5-flash",
+
+        answer,
+      });
+
+    } catch (error) {
+      // --------------------------------------------------------
+      // HANDLE AI ERROR
+      // --------------------------------------------------------
+
+      console.error(
+        "OneVest AI error:",
+        error,
+      );
+
+      return c.json(
+        {
+          success: false,
+
+          error:
+            "AI request failed",
+
+          details:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        },
+        500,
+      );
+    }
+  },
 );
 
 // ============================================================
@@ -227,7 +383,7 @@ app.get(
               "/api/market-intelligence?symbol=AAPL",
           },
 
-          400
+          400,
         );
       }
 
@@ -238,20 +394,20 @@ app.get(
       console.log("");
 
       console.log(
-        "================================="
+        "=================================",
       );
 
       console.log(
-        "Market intelligence request"
+        "Market intelligence request",
       );
 
       console.log(
         "Symbol:",
-        symbol
+        symbol,
       );
 
       console.log(
-        "================================="
+        "=================================",
       );
 
       // --------------------------------------------------------
@@ -262,24 +418,38 @@ app.get(
         `${SERVICE_URL}/api/market-intelligence?symbol=${encodeURIComponent(symbol)}`;
 
       console.log(
-        "Requesting paid service..."
+        "Requesting paid service...",
       );
 
       // --------------------------------------------------------
       // REQUEST x402 SERVICE
       // --------------------------------------------------------
 
-      const response =
-        await fetchWithPayment(
-          url,
-          {
-            method: "GET",
-          }
-        );
+      let response: Response;
+
+try {
+  response = await fetchWithPayment(
+    url,
+    {
+      method: "GET",
+    },
+  );
+} catch (error) {
+  console.error("=================================");
+  console.error("x402 PAYMENT ERROR");
+  console.error("=================================");
+  console.error(error);
+  console.error(
+    error instanceof Error
+      ? error.stack
+      : String(error),
+  );
+  throw error;
+}
 
       console.log(
         "x402 service HTTP status:",
-        response.status
+        response.status,
       );
 
       // --------------------------------------------------------
@@ -292,7 +462,7 @@ app.get(
 
         console.error(
           "x402 request failed:",
-          body
+          body,
         );
 
         return c.json(
@@ -309,7 +479,7 @@ app.get(
               body,
           },
 
-          502
+          502,
         );
       }
 
@@ -323,16 +493,16 @@ app.get(
       try {
         payment =
           new x402HTTPClient(
-            client
+            client,
           ).getPaymentSettleResponse(
             (name) =>
               response.headers.get(
-                name
-              )
+                name,
+              ),
           );
       } catch {
         console.log(
-          "Payment settlement header was not returned."
+          "Payment settlement header was not returned.",
         );
       }
 
@@ -346,7 +516,7 @@ app.get(
       console.log("");
 
       console.log(
-        "Payment settled successfully."
+        "Payment settled successfully.",
       );
 
       console.log(
@@ -354,8 +524,8 @@ app.get(
         JSON.stringify(
           data,
           null,
-          2
-        )
+          2,
+        ),
       );
 
       // --------------------------------------------------------
@@ -377,7 +547,7 @@ app.get(
 
       console.error(
         "Agent error:",
-        error
+        error,
       );
 
       return c.json(
@@ -393,17 +563,15 @@ app.get(
               : String(error),
         },
 
-        500
+        500,
       );
     }
-  }
+  },
 );
 
 // ============================================================
 // START HTTP SERVER
 // ============================================================
-//
-// IMPORTANT:
 //
 // hostname: "0.0.0.0"
 //
@@ -411,7 +579,7 @@ app.get(
 //
 // http://10.0.2.2:4020
 //
-// instead of only allowing:
+// instead of only:
 //
 // http://localhost:4020
 //
@@ -433,19 +601,19 @@ serve(
     console.log("");
 
     console.log(
-      "================================="
+      "=================================",
     );
 
     console.log(
-      `OneVest Agent API running on http://localhost:${info.port}`
+      `OneVest Agent API running on http://localhost:${info.port}`,
     );
 
     console.log(
-      `Android emulator endpoint: http://10.0.2.2:${info.port}`
+      `Android emulator endpoint: http://10.0.2.2:${info.port}`,
     );
 
     console.log(
-      "================================="
+      "=================================",
     );
-  }
+  },
 );

@@ -8,12 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'add_investment_screen.dart';
-import 'ai_screen.dart';
-import 'portfolio_analytics_screen.dart';
-import 'portfolio_screen.dart';
-import 'profile_screen.dart';
+import 'ai_screen.dart' as ai;
+import 'portfolio_analytics_screen.dart' as analytics;
+import 'portfolio_screen.dart' as portfolio;
+import 'profile_screen.dart' as profile;
 import '../widgets/live_market_widget.dart';
-import 'ai_agent_screen.dart';
+import 'ai_agent_screen.dart' as ai_agent;
 import '../services/market_price_cache.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -578,7 +578,7 @@ class _DashboardScreenState
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      const PortfolioScreen(),
+                      portfolio.PortfolioScreen(),
                 ),
               );
             },
@@ -586,13 +586,13 @@ class _DashboardScreenState
 
           _sidebarButton(
             icon: Icons.smart_toy_rounded,
-            tooltip: "AI",
+            tooltip: "AI Agent",
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      const AiScreen(),
+                      const ai_agent.AiAgentScreen(),
                 ),
               );
             },
@@ -606,7 +606,7 @@ class _DashboardScreenState
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      const ProfileScreen(),
+                      profile.ProfileScreen(),
                 ),
               );
             },
@@ -623,7 +623,7 @@ class _DashboardScreenState
                 context,
                 MaterialPageRoute(
                   builder: (_) =>
-                      const PortfolioAnalyticsScreen(),
+                      analytics.PortfolioAnalyticsScreen(),
                 ),
               );
             },
@@ -996,11 +996,9 @@ class _DashboardScreenState
     BuildContext context,
   ) {
     return _EntranceAnimation(
-      delay:
-          const Duration(milliseconds: 300),
+      delay: const Duration(milliseconds: 300),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -1022,34 +1020,25 @@ class _DashboardScreenState
                   size: 14,
                 ),
                 onPressed: () {
-                  if (!quickActionController
-                      .hasClients) {
+                  if (!quickActionController.hasClients) {
                     return;
                   }
 
                   if (showForwardArrow) {
-                    quickActionController
-                        .animateTo(
-                      quickActionController
-                          .position
-                          .maxScrollExtent,
-                      duration:
-                          const Duration(
+                    quickActionController.animateTo(
+                      quickActionController.position.maxScrollExtent,
+                      duration: const Duration(
                         milliseconds: 350,
                       ),
-                      curve:
-                          Curves.easeInOut,
+                      curve: Curves.easeInOut,
                     );
                   } else {
-                    quickActionController
-                        .animateTo(
+                    quickActionController.animateTo(
                       0,
-                      duration:
-                          const Duration(
+                      duration: const Duration(
                         milliseconds: 350,
                       ),
-                      curve:
-                          Curves.easeInOut,
+                      curve: Curves.easeInOut,
                     );
                   }
                 },
@@ -1062,11 +1051,12 @@ class _DashboardScreenState
           SizedBox(
             height: 105,
             child: ListView(
-              controller:
-                  quickActionController,
-              scrollDirection:
-                  Axis.horizontal,
+              controller: quickActionController,
+              scrollDirection: Axis.horizontal,
               children: [
+                // ------------------------------------------------
+                // INVEST
+                // ------------------------------------------------
                 actionButton(
                   context,
                   Icons.trending_up,
@@ -1087,17 +1077,19 @@ class _DashboardScreenState
 
                 const SizedBox(width: 18),
 
+                // ------------------------------------------------
+                // PORTFOLIO
+                // ------------------------------------------------
                 actionButton(
                   context,
-                  Icons
-                      .account_balance_wallet,
+                  Icons.account_balance_wallet,
                   "Portfolio",
                   () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            const PortfolioScreen(),
+                            portfolio.PortfolioScreen(),
                       ),
                     );
                   },
@@ -1105,6 +1097,9 @@ class _DashboardScreenState
 
                 const SizedBox(width: 18),
 
+                // ------------------------------------------------
+                // ANALYTICS
+                // ------------------------------------------------
                 actionButton(
                   context,
                   Icons.pie_chart,
@@ -1114,7 +1109,7 @@ class _DashboardScreenState
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            const PortfolioAnalyticsScreen(),
+                            analytics.PortfolioAnalyticsScreen(),
                       ),
                     );
                   },
@@ -1122,16 +1117,19 @@ class _DashboardScreenState
 
                 const SizedBox(width: 18),
 
+                // ------------------------------------------------
+                // AI AGENT
+                // ------------------------------------------------
                 actionButton(
                   context,
-                  Icons.smart_toy,
-                  "AI",
+                  Icons.smart_toy_rounded,
+                  "AI Agent",
                   () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            const AiScreen(),
+                            ai_agent.AiAgentScreen(),
                       ),
                     );
                   },
@@ -1139,6 +1137,16 @@ class _DashboardScreenState
 
                 const SizedBox(width: 18),
 
+                // ------------------------------------------------
+                // AI
+                // ------------------------------------------------
+                
+
+                const SizedBox(width: 18),
+
+                // ------------------------------------------------
+                // PROFILE
+                // ------------------------------------------------
                 actionButton(
                   context,
                   Icons.person,
@@ -1148,7 +1156,7 @@ class _DashboardScreenState
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            const ProfileScreen(),
+                            profile.ProfileScreen(),
                       ),
                     );
                   },
@@ -1382,7 +1390,7 @@ class _DashboardScreenState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const PortfolioScreen(),
+                  builder: (_) => portfolio.PortfolioScreen(),
                 ),
               );
             }
@@ -1392,7 +1400,7 @@ class _DashboardScreenState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AiAgentScreen(),
+                  builder: (_) => ai_agent.AiAgentScreen(),
                 ),
               );
             }
@@ -1402,7 +1410,7 @@ class _DashboardScreenState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AiScreen(),
+                  builder: (_) => ai.AiScreen(),
                 ),
               );
             }
@@ -1411,7 +1419,7 @@ class _DashboardScreenState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const ProfileScreen(),
+                  builder: (_) => profile.ProfileScreen(),
                 ),
               );
             }

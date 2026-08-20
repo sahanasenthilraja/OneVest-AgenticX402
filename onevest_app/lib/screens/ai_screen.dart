@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'portfolio_screen.dart';
 import 'profile_screen.dart';
 import 'portfolio_analytics_screen.dart';
@@ -105,7 +106,7 @@ class _AiScreenState extends State<AiScreen> {
   Future<void> sendMessage() async {
     final String question = _controller.text.trim();
 
-    if (question.isEmpty) {
+    if (question.isEmpty || isTyping) {
       return;
     }
 
@@ -122,37 +123,133 @@ class _AiScreenState extends State<AiScreen> {
 
     _controller.clear();
 
-    await Future<void>.delayed(
-      const Duration(milliseconds: 550),
-    );
+    try {
+      // ==========================================================
+      // CONNECT TO THE ONEVEST AI BACKEND
+      // ==========================================================
+      //
+      // Chrome / Flutter Web:
+      // http://localhost:4020
+      //
+      // Android emulator:
+      // http://10.0.2.2:4020
+      //
+      // Gemini API key stays safely inside the backend .env.
+      // ==========================================================
 
-    String answer =
-        "I'm OneVest AI. Ask me about your portfolio, risk, SIPs, stocks, gold, mutual funds or crypto.";
+      final Uri url = Uri.parse(
+        'http://localhost:4020/api/ai/chat',
+      );
 
-    final String lowerQuestion = question.toLowerCase();
+      final http.Response response = await http.post(
+        url,
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(
+          <String, dynamic>{
+            'message': question,
+          },
+        ),
+      );
 
-    for (final MapEntry<String, String> entry
-        in knowledgeBase.entries) {
-      if (lowerQuestion.contains(entry.key)) {
-        answer = entry.value;
-        break;
+      // ==========================================================
+      // SUCCESS
+      // ==========================================================
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(response.body) as Map<String, dynamic>;
+
+        final String answer =
+            data['answer']?.toString() ??
+            'Sorry, I could not generate a response.';
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          messages.add(
+            <String, dynamic>{
+              'isUser': false,
+              'text': answer,
+            },
+          );
+
+          isTyping = false;
+        });
+      }
+
+      // ==========================================================
+      // BACKEND / GEMINI ERROR
+      // ==========================================================
+
+      else {
+        String errorMessage =
+            'OneVest AI could not process your request.';
+
+        try {
+          final Map<String, dynamic> errorData =
+              jsonDecode(response.body) as Map<String, dynamic>;
+
+          final dynamic details = errorData['details'];
+          final dynamic error = errorData['error'];
+
+          if (details != null) {
+            errorMessage =
+                'AI error: ${details.toString()}';
+          } else if (error != null) {
+            errorMessage =
+                'AI error: ${error.toString()}';
+          }
+        } catch (_) {
+          // Keep default error message.
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          messages.add(
+            <String, dynamic>{
+              'isUser': false,
+              'text': errorMessage,
+            },
+          );
+
+          isTyping = false;
+        });
       }
     }
 
-    if (!mounted) {
-      return;
+    // ============================================================
+    // CONNECTION ERROR
+    // ============================================================
+
+    catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        messages.add(
+          <String, dynamic>{
+            'isUser': false,
+            'text':
+                'Unable to connect to OneVest AI. '
+                'Make sure the agent-service is running on port 4020.',
+          },
+        );
+
+        isTyping = false;
+      });
     }
 
-    setState(() {
-      messages.add(
-        <String, dynamic>{
-          'isUser': false,
-          'text': answer,
-        },
-      );
-
-      isTyping = false;
-    });
+    // ============================================================
+    // SCROLL TO NEW MESSAGE
+    // ============================================================
 
     Future<void>.delayed(
       const Duration(milliseconds: 100),

@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
+import { cors } from "hono/cors";
 
 import {
   paymentMiddleware,
@@ -18,6 +19,15 @@ import {
 config();
 
 const app = new Hono();
+// CORS for Flutter Web / Chrome
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 /*
  * ============================================================
