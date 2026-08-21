@@ -1,11 +1,12 @@
 import 'dart:convert';
-
+import '../services/security_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 
 // ================================================================
 // ONEVEST DESIGN SYSTEM
@@ -120,7 +121,9 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   Map<String, dynamic>? marketData;
 
   List<Map<String, dynamic>> paymentHistory = [];
+  int _failedPinAttempts = 0;
 
+static const int _maxPinAttempts = 3;
   // ==============================================================
   // API
   // ==============================================================
@@ -164,7 +167,358 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
   // ==============================================================
   // MARKET INTELLIGENCE
   // ==============================================================
+  Future<void> _authorizeAndGetMarketIntelligence() async {
+  final hasPin = await SecurityService.hasPin();
 
+  if (!mounted) return;
+
+  // ------------------------------------------------------------
+  // STEP 1: REQUIRE TRANSACTION PIN
+  // ------------------------------------------------------------
+
+  if (!hasPin) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Please set up your Transaction PIN in Profile first.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  // ------------------------------------------------------------
+  // STEP 2: SHOW EXPLICIT PAYMENT CONFIRMATION
+  // ------------------------------------------------------------
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: _surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(
+            color: Color(0xFF1E2C48),
+          ),
+        ),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.payments_rounded,
+              color: _teal,
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'CONFIRM TRANSACTION',
+                style: _pixel.copyWith(
+                  color: _white,
+                  fontSize: 10,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _surface2,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _teal.withOpacity(.15),
+                ),
+              ),
+              child: Column(
+                children: [
+                  _confirmationRow(
+                    'SERVICE',
+                    'AI MARKET INTELLIGENCE',
+                  ),
+                  const SizedBox(height: 12),
+                  _confirmationRow(
+                    'AMOUNT',
+                    '0.005 USDC',
+                    valueColor: _teal,
+                  ),
+                  const SizedBox(height: 12),
+                  _confirmationRow(
+                    'NETWORK',
+                    'ALGORAND TESTNET',
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            Text(
+              'You are authorizing the AI Agent to request '
+              'premium market intelligence.',
+              textAlign: TextAlign.center,
+              style: _mono.copyWith(
+                color: _muted,
+                fontSize: 10,
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext, false);
+            },
+            child: Text(
+              'CANCEL',
+              style: _mono.copyWith(
+                color: _muted,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext, true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _teal,
+              foregroundColor: _bg,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'CONFIRM',
+              style: _mono.copyWith(
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true || !mounted) {
+    return;
+  }
+
+  // ------------------------------------------------------------
+  // STEP 3: TRANSACTION PIN AUTHORIZATION
+  // ------------------------------------------------------------
+
+  final pinController = TextEditingController();
+
+  final authorized = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: _surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(
+            color: Color(0xFF1E2C48),
+          ),
+        ),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.lock_outline_rounded,
+              color: _teal,
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'AUTHORIZE PAYMENT',
+                style: _pixel.copyWith(
+                  color: _white,
+                  fontSize: 10,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'ENTER YOUR 4-DIGIT TRANSACTION PIN',
+              textAlign: TextAlign.center,
+              style: _mono.copyWith(
+                color: _muted,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: pinController,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              obscureText: true,
+              autofocus: true,
+              style: _mono.copyWith(
+                color: _white,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+              decoration: InputDecoration(
+                labelText: 'TRANSACTION PIN',
+                labelStyle: _mono.copyWith(
+                  color: _muted,
+                  fontSize: 9,
+                ),
+                counterStyle: _mono.copyWith(
+                  color: _muted2,
+                  fontSize: 8,
+                ),
+                prefixIcon: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: _teal,
+                  size: 19,
+                ),
+                filled: true,
+                fillColor: _surface2,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _teal.withOpacity(.20),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: _teal,
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext, false);
+            },
+            child: Text(
+              'CANCEL',
+              style: _mono.copyWith(
+                color: _muted,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final valid =
+                  await SecurityService.verifyPin(
+                pinController.text.trim(),
+              );
+
+              if (!dialogContext.mounted) return;
+
+              if (!valid) {
+                _failedPinAttempts++;
+
+                if (_failedPinAttempts >=
+                    _maxPinAttempts) {
+                  _failedPinAttempts = 0;
+
+                  Navigator.pop(
+                    dialogContext,
+                    false,
+                  );
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        backgroundColor:
+                            Colors.redAccent,
+                        content: Text(
+                          'Too many incorrect PIN attempts. Payment cancelled.',
+                        ),
+                      ),
+                    );
+                  }
+
+                  return;
+                }
+
+                final remaining =
+                    _maxPinAttempts -
+                        _failedPinAttempts;
+
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(
+                  SnackBar(
+                    backgroundColor:
+                        Colors.redAccent,
+                    content: Text(
+                      'Incorrect PIN. $remaining attempt(s) remaining.',
+                    ),
+                  ),
+                );
+
+                return;
+              }
+
+              _failedPinAttempts = 0;
+
+              Navigator.pop(
+                dialogContext,
+                true,
+              );
+            },
+            icon: const Icon(
+              Icons.lock_open_rounded,
+              size: 17,
+            ),
+            label: const Text('AUTHORIZE'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _teal,
+              foregroundColor: _bg,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  pinController.dispose();
+
+  if (authorized != true || !mounted) {
+    return;
+  }
+
+  // ------------------------------------------------------------
+  // STEP 4: EXISTING X402 FLOW
+  // ------------------------------------------------------------
+
+  await getMarketIntelligence();
+}
   Future<void> getMarketIntelligence() async {
     final symbol = symbolController.text.trim().toUpperCase();
 
@@ -1120,7 +1474,7 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
               ),
 
               onSubmitted: (_) =>
-                  getMarketIntelligence(),
+    _authorizeAndGetMarketIntelligence(),
             ),
           ),
 
@@ -1152,10 +1506,9 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
 
             child: ElevatedButton.icon(
               onPressed:
-                  isLoading
-                      ? null
-                      : getMarketIntelligence,
-
+    isLoading
+        ? null
+        : _authorizeAndGetMarketIntelligence,
               style:
                   ElevatedButton.styleFrom(
                 backgroundColor: _teal,
@@ -1374,7 +1727,41 @@ class _AiAgentScreenState extends State<AiAgentScreen> {
       ),
     );
   }
-
+  Widget _confirmationRow(
+  String label,
+  String value, {
+  Color valueColor = _white,
+}) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 80,
+        child: Text(
+          label,
+          style: _mono.copyWith(
+            color: _muted,
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .6,
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          value,
+          textAlign: TextAlign.right,
+          style: _mono.copyWith(
+            color: valueColor,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    ],
+  );
+}
   Widget _infoRow(
     String title,
     String value,

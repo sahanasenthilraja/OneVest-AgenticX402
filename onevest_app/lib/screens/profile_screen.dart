@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import '../services/security_service.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
+import '../services/app_lock_service.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -211,18 +213,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signOut();
+  // Stop the automatic session-lock timer.
+  AppLockService.stop();
 
-      if (!mounted) return;
+  // Remove the locally stored Transaction PIN.
+  await SecurityService.clearPin();
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(),
-        ),
-        (route) => false,
-      );
-    } catch (e) {
+  // Sign the user out of Firebase.
+  await FirebaseAuth.instance.signOut();
+
+  if (!mounted) return;
+
+  // Remove all previous screens so the user
+  // cannot navigate back into the authenticated app.
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const LoginScreen(),
+    ),
+    (route) => false,
+  );
+} catch (e) {
       if (!mounted) return;
 
       setState(() {
@@ -244,6 +255,181 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
   }
+
+  
+
+  // ============================================================
+  // TRANSACTION PIN
+  // ============================================================
+
+  Future<void> _setupTransactionPin() async {
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: border),
+          ),
+          title: Text(
+            "SET TRANSACTION PIN",
+            style: heading(14, color: white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Create a 4-digit PIN to authorize AI Agent payments.",
+                style: mono(
+                  12,
+                  color: muted,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: pinController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                style: mono(16, color: white),
+                decoration: InputDecoration(
+                  labelText: "Transaction PIN",
+                  labelStyle: mono(11, color: muted),
+                  counterStyle: mono(10, color: muted),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: border),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: teal),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: confirmController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                style: mono(16, color: white),
+                decoration: InputDecoration(
+                  labelText: "Confirm PIN",
+                  labelStyle: mono(11, color: muted),
+                  counterStyle: mono(10, color: muted),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: border),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: teal),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: Text(
+                "CANCEL",
+                style: mono(
+                  11,
+                  color: muted,
+                  weight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final pin = pinController.text.trim();
+                final confirm = confirmController.text.trim();
+
+                if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: red,
+                      content: Text(
+                        "PIN must contain exactly 4 digits.",
+                        style: mono(12, color: white),
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                if (pin != confirm) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: red,
+                      content: Text(
+                        "PINs do not match.",
+                        style: mono(12, color: white),
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                await SecurityService.savePin(pin);
+
+                if (!dialogContext.mounted) return;
+
+                Navigator.pop(dialogContext, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: teal,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                "SAVE PIN",
+                style: mono(
+                  11,
+                  color: Colors.black,
+                  weight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    pinController.dispose();
+    confirmController.dispose();
+
+    if (result == true && mounted) {
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: tealDark,
+          content: Text(
+            "Transaction PIN secured successfully.",
+            style: mono(
+              12,
+              color: white,
+              weight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+  // ============================================================
+  // KYC INFORMATION
+  // ============================================================
+
+  
 
   // ============================================================
   // BUILD
@@ -300,12 +486,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final phone = userData?["phone"]?.toString() ?? "";
 
     final riskProfile =
-        userData?["riskProfile"]?.toString().isNotEmpty == true
-            ? userData!["riskProfile"].toString()
-            : "Not Set";
+    userData?["riskProfile"]?.toString().isNotEmpty == true
+        ? userData!["riskProfile"].toString()
+        : "Not Set";
 
-    final initials = _getInitials(name);
+final kycStatus =
+    userData?["kycStatus"]?.toString().isNotEmpty == true
+        ? userData!["kycStatus"].toString()
+        : "Not Verified";
 
+final initials = _getInitials(name);
     return Scaffold(
       backgroundColor: background,
 
@@ -469,13 +659,157 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       _riskCard(riskProfile),
 
-                      const SizedBox(height: 22),
+const SizedBox(height: 22),
 
-                      // ==================================================
-                      // ACCOUNT ACTIONS
-                      // ==================================================
+// ==================================================
+// SECURITY
+// ==================================================
 
-                      _sectionTitle(
+_sectionTitle(
+  icon: Icons.security_rounded,
+  title: "Security",
+  subtitle: "Protect AI Agent transactions",
+  color: teal,
+),
+
+const SizedBox(height: 15),
+
+FutureBuilder<bool>(
+  future: SecurityService.hasPin(),
+  builder: (context, snapshot) {
+    final pinConfigured = snapshot.data ?? false;
+
+    return _actionCard(
+      icon: Icons.lock_outline_rounded,
+      title: "Transaction PIN",
+      subtitle: pinConfigured
+          ? "PIN is configured for AI Agent payments"
+          : "Set a PIN to authorize AI Agent payments",
+      color: teal,
+      onTap: _setupTransactionPin,
+    );
+  },
+),
+const SizedBox(height: 22),
+
+// ==================================================
+// KYC / IDENTITY VERIFICATION
+// ==================================================
+
+_sectionTitle(
+  icon: Icons.badge_outlined,
+  title: "Identity Verification",
+  subtitle: "KYC status for financial services",
+  color: orange,
+),
+
+const SizedBox(height: 15),
+
+Container(
+  width: double.infinity,
+  padding: const EdgeInsets.all(20),
+  decoration: BoxDecoration(
+    color: surface,
+    borderRadius: BorderRadius.circular(18),
+    border: Border.all(
+      color: border,
+    ),
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: orange.withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.verified_user_outlined,
+              color: orange,
+              size: 25,
+            ),
+          ),
+
+          const SizedBox(width: 15),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "KYC STATUS",
+                  style: mono(
+                    10,
+                    color: muted,
+                    weight: FontWeight.bold,
+                    spacing: 0.8,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  kycStatus,
+                  style: mono(
+                    17,
+                    color: kycStatus.toLowerCase() == "verified"
+                        ? green
+                        : orange,
+                    weight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Icon(
+            kycStatus.toLowerCase() == "verified"
+                ? Icons.check_circle_rounded
+                : Icons.pending_outlined,
+            color: kycStatus.toLowerCase() == "verified"
+                ? green
+                : orange,
+            size: 25,
+          ),
+        ],
+      ),
+
+      const SizedBox(height: 18),
+
+      Text(
+        kycStatus.toLowerCase() == "verified"
+            ? "Identity verification has been completed."
+            : "Identity verification is required before regulated investment services.",
+        style: mono(
+          11,
+          color: muted,
+          height: 1.5,
+        ),
+      ),
+
+      const SizedBox(height: 15),
+
+      _actionCard(
+        icon: Icons.arrow_forward_rounded,
+        title: "Start KYC",
+        subtitle: "Continue with an authorised KYC provider",
+        color: orange,
+        onTap: () => _showKycInformationDialog(context),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 22),
+
+// ==================================================
+// ACCOUNT ACTIONS
+// ==================================================
+                    _sectionTitle(
                         icon: Icons.tune_rounded,
                         title: "Account",
                         subtitle: "Manage your OneVest experience",
@@ -1069,4 +1403,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return "${parts.first[0]}${parts.last[0]}".toUpperCase();
   }
+}
+Future<void> _showKycInformationDialog(
+  BuildContext context,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF0A1428),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(
+            color: Color(0xFF243B60),
+          ),
+        ),
+        title: const Text(
+          "KYC VERIFICATION",
+          style: TextStyle(
+            color: Color(0xFFF5F8FC),
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.verified_user_outlined,
+              color: Color(0xFFFFB52E),
+              size: 42,
+            ),
+            SizedBox(height: 15),
+            Text(
+              "Identity verification is not completed yet.",
+              style: TextStyle(
+                color: Color(0xFFF5F8FC),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              "OneVest should use an authorised KYC provider "
+              "for PAN, Aadhaar/e-KYC and identity verification. "
+              "This prototype does not store or display fake "
+              "government identification details.",
+              style: TextStyle(
+                color: Color(0xFF91A0B8),
+                fontSize: 11,
+                height: 1.6,
+              ),
+            ),
+            SizedBox(height: 15),
+            Text(
+              "KYC STATUS: NOT VERIFIED",
+              style: TextStyle(
+                color: Color(0xFFFFB52E),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF14C8B0),
+              foregroundColor: Colors.black,
+            ),
+            child: const Text("CLOSE"),
+          ),
+        ],
+      );
+    },
+  );
 }
