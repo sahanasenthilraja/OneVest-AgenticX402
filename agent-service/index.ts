@@ -43,8 +43,7 @@ if (!MNEMONIC) {
 }
 
 // ============================================================
-// CONVERT ALGORAND MNEMONIC
-// TO BASE64 PRIVATE KEY
+// ALGORAND MNEMONIC -> BASE64 PRIVATE KEY
 // ============================================================
 
 function mnemonicToPrivateKeyBase64(
@@ -73,7 +72,7 @@ function mnemonicToPrivateKeyBase64(
 }
 
 // ============================================================
-// CREATE ALGORAND x402 SIGNER
+// CREATE x402 SIGNER
 // ============================================================
 
 const privateKeyBase64 =
@@ -87,7 +86,7 @@ const avmSigner =
   );
 
 // ============================================================
-// STARTUP INFORMATION
+// STARTUP
 // ============================================================
 
 console.log(
@@ -118,20 +117,16 @@ console.log(
 );
 
 console.log(
-  "Gemini AI:",
+  "Groq AI:",
   "Enabled",
 );
 
 // ============================================================
-// CREATE x402 CLIENT
+// x402 CLIENT
 // ============================================================
 
 const client =
   new x402Client();
-
-// ============================================================
-// REGISTER ALGORAND TESTNET
-// ============================================================
 
 client.register(
   ALGORAND_TESTNET_CAIP2,
@@ -140,11 +135,6 @@ client.register(
   ),
 );
 
-// ============================================================
-// WRAP FETCH WITH AUTOMATIC x402
-// PAYMENT HANDLING
-// ============================================================
-
 const fetchWithPayment =
   wrapFetchWithPayment(
     fetch,
@@ -152,17 +142,24 @@ const fetchWithPayment =
   );
 
 // ============================================================
-// CREATE HONO HTTP API
+// HONO APP
 // ============================================================
 
 const app =
   new Hono();
-  app.use(
+
+app.use(
   "*",
   cors({
     origin: "*",
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type"],
+    allowMethods: [
+      "GET",
+      "POST",
+      "OPTIONS",
+    ],
+    allowHeaders: [
+      "Content-Type",
+    ],
   }),
 );
 
@@ -191,44 +188,23 @@ app.get(
       port:
         PORT,
 
-      gemini:
+      groq:
+        "enabled",
+
+      premiumIntelligence:
         "enabled",
     });
   },
 );
 
 // ============================================================
-// ONEVEST AI CHAT ENDPOINT
-// ============================================================
-//
-// Flutter will eventually call:
-//
-// POST /api/ai/chat
-//
-// Request:
-//
-// {
-//   "message": "Explain diversification"
-// }
-//
-// Response:
-//
-// {
-//   "success": true,
-//   "model": "gemini-2.5-flash",
-//   "answer": "..."
-// }
-//
+// BASIC AI CHAT
 // ============================================================
 
 app.post(
   "/api/ai/chat",
   async (c) => {
     try {
-      // --------------------------------------------------------
-      // READ REQUEST BODY
-      // --------------------------------------------------------
-
       const body =
         await c.req.json();
 
@@ -237,80 +213,49 @@ app.post(
           ? body.message.trim()
           : "";
 
-      // --------------------------------------------------------
-      // VALIDATE MESSAGE
-      // --------------------------------------------------------
-
       if (!message) {
         return c.json(
           {
             success: false,
-
-            error:
-              "Missing message",
+            error: "Missing message",
           },
           400,
         );
       }
 
-      // --------------------------------------------------------
-      // LOG AI REQUEST
-      // --------------------------------------------------------
-
       console.log("");
-
       console.log(
         "=================================",
       );
-
       console.log(
         "OneVest AI request",
       );
-
       console.log(
         "Message:",
         message,
       );
-
       console.log(
         "=================================",
       );
-
-      // --------------------------------------------------------
-      // SEND REQUEST TO GEMINI
-      // --------------------------------------------------------
 
       const answer =
         await askOneVestAI(
           message,
         );
 
-      // --------------------------------------------------------
-      // LOG RESPONSE
-      // --------------------------------------------------------
-
       console.log(
-        "Gemini response received.",
+        "Groq response received.",
       );
-
-      // --------------------------------------------------------
-      // RETURN RESPONSE TO FLUTTER
-      // --------------------------------------------------------
 
       return c.json({
         success: true,
 
         model:
-          "gemini-2.5-flash",
+  "openai/gpt-oss-20b",
 
         answer,
       });
-
     } catch (error) {
-      // --------------------------------------------------------
-      // HANDLE AI ERROR
-      // --------------------------------------------------------
-
       console.error(
         "OneVest AI error:",
         error,
@@ -335,25 +280,26 @@ app.post(
 );
 
 // ============================================================
-// MARKET INTELLIGENCE ENDPOINT
+// PREMIUM MARKET INTELLIGENCE
 // ============================================================
 //
-// Flutter calls:
+// GET /api/market-intelligence?symbol=TCS.NS
 //
-// GET /api/market-intelligence?symbol=AAPL
+// Flow:
 //
-// The agent:
-//
-// 1. Requests the paid x402 endpoint
-// 2. Receives HTTP 402
-// 3. Reads payment requirements
-// 4. Creates Algorand USDC payment
-// 5. Signs transaction
-// 6. Sends payment proof
-// 7. Payment settles
-// 8. Retries the request
-// 9. Receives premium market data
-// 10. Returns the result to Flutter
+// Flutter
+//    ↓
+// Agent :4020
+//    ↓
+// x402 payment
+//    ↓
+// x402 service :4021
+//    ↓
+// Real market data
+//    ↓
+// Premium intelligence
+//    ↓
+// Flutter
 //
 // ============================================================
 
@@ -380,72 +326,80 @@ app.get(
               "Missing symbol",
 
             example:
-              "/api/market-intelligence?symbol=AAPL",
+              "/api/market-intelligence?symbol=TCS.NS",
           },
-
           400,
         );
       }
 
-      // --------------------------------------------------------
-      // LOG REQUEST
-      // --------------------------------------------------------
-
       console.log("");
-
       console.log(
         "=================================",
       );
-
       console.log(
-        "Market intelligence request",
+        "ONEVEST PREMIUM INTELLIGENCE",
       );
-
       console.log(
         "Symbol:",
         symbol,
       );
-
       console.log(
         "=================================",
       );
 
       // --------------------------------------------------------
-      // PAID x402 SERVICE URL
+      // PAID x402 URL
       // --------------------------------------------------------
 
       const url =
         `${SERVICE_URL}/api/market-intelligence?symbol=${encodeURIComponent(symbol)}`;
 
       console.log(
-        "Requesting paid service...",
+        "Requesting premium x402 service...",
       );
 
       // --------------------------------------------------------
-      // REQUEST x402 SERVICE
+      // AUTOMATIC x402 PAYMENT
       // --------------------------------------------------------
 
       let response: Response;
 
-try {
-  response = await fetchWithPayment(
-    url,
-    {
-      method: "GET",
-    },
-  );
-} catch (error) {
-  console.error("=================================");
-  console.error("x402 PAYMENT ERROR");
-  console.error("=================================");
-  console.error(error);
-  console.error(
-    error instanceof Error
-      ? error.stack
-      : String(error),
-  );
-  throw error;
-}
+      try {
+        response =
+          await fetchWithPayment(
+            url,
+            {
+              method: "GET",
+            },
+          );
+      } catch (error) {
+        console.error("");
+        console.error(
+          "=================================",
+        );
+        console.error(
+          "x402 PAYMENT ERROR",
+        );
+        console.error(
+          "=================================",
+        );
+        console.error(error);
+
+        return c.json(
+          {
+            success: false,
+
+            error:
+              "Premium payment failed",
+
+            details:
+              error instanceof Error
+                ? error.message
+                : String(error),
+          },
+          502,
+        );
+      }
 
       console.log(
         "x402 service HTTP status:",
@@ -453,7 +407,7 @@ try {
       );
 
       // --------------------------------------------------------
-      // HANDLE FAILED PAYMENT / REQUEST
+      // HANDLE FAILED REQUEST
       // --------------------------------------------------------
 
       if (!response.ok) {
@@ -470,7 +424,7 @@ try {
             success: false,
 
             error:
-              "x402 payment/request failed",
+              "x402 premium request failed",
 
             status:
               response.status,
@@ -478,13 +432,12 @@ try {
             details:
               body,
           },
-
           502,
         );
       }
 
       // --------------------------------------------------------
-      // READ x402 SETTLEMENT RESPONSE
+      // PAYMENT SETTLEMENT
       // --------------------------------------------------------
 
       let payment:
@@ -502,67 +455,327 @@ try {
           );
       } catch {
         console.log(
-          "Payment settlement header was not returned.",
+          "Payment settlement header unavailable.",
         );
       }
 
       // --------------------------------------------------------
-      // READ PREMIUM MARKET DATA
+      // READ PREMIUM RESPONSE
       // --------------------------------------------------------
 
-      const data =
+      const raw =
         await response.json();
 
       console.log("");
-
       console.log(
-        "Payment settled successfully.",
+        "Premium response received.",
       );
 
       console.log(
-        "Market intelligence:",
         JSON.stringify(
-          data,
+          raw,
           null,
           2,
         ),
       );
 
       // --------------------------------------------------------
-      // RETURN RESULT TO FLUTTER
+      // NORMALIZE MARKET OBJECT
+      // --------------------------------------------------------
+
+      const market =
+        raw?.market ??
+        raw?.data?.market ??
+        raw?.data?.data?.market ??
+        null;
+
+      if (!market) {
+        console.error(
+          "No market object found.",
+        );
+
+        return c.json(
+          {
+            success: false,
+
+            error:
+              "Premium market data missing",
+
+            payment,
+
+            raw,
+          },
+          502,
+        );
+      }
+
+      // --------------------------------------------------------
+      // NORMALIZE INTELLIGENCE
+      // --------------------------------------------------------
+
+      const rawIntelligence =
+        raw?.intelligence ??
+        raw?.data?.intelligence ??
+        raw?.data?.data?.intelligence ??
+        null;
+
+      // --------------------------------------------------------
+      // PREMIUM INTELLIGENCE
+      // --------------------------------------------------------
+
+      const intelligence =
+        rawIntelligence
+          ? {
+              verdict:
+                rawIntelligence.verdict ??
+                "Neutral",
+
+              confidence:
+                Number(
+                  rawIntelligence.confidence ??
+                    50,
+                ),
+
+              momentum:
+                Number(
+                  rawIntelligence.momentum ??
+                    50,
+                ),
+
+              volatility:
+                Number(
+                  rawIntelligence.volatility ??
+                    50,
+                ),
+
+              risk:
+                rawIntelligence.risk ??
+                "Moderate",
+
+              marketSummary:
+                rawIntelligence.marketSummary ??
+                "Market conditions are being monitored.",
+
+              whyItMatters:
+                Array.isArray(
+                  rawIntelligence.whyItMatters,
+                )
+                  ? rawIntelligence.whyItMatters
+                  : [],
+
+              riskRadar:
+                Array.isArray(
+                  rawIntelligence.riskRadar,
+                )
+                  ? rawIntelligence.riskRadar
+                  : [],
+
+              scenarios:
+                Array.isArray(
+                  rawIntelligence.scenarios,
+                )
+                  ? rawIntelligence.scenarios
+                  : [],
+
+              watchItems:
+                Array.isArray(
+                  rawIntelligence.watchItems,
+                )
+                  ? rawIntelligence.watchItems
+                  : [],
+
+              nextBestAction:
+                rawIntelligence.nextBestAction ??
+                {
+                  title:
+                    "Monitor",
+
+                  reason:
+                    "Continue monitoring market conditions.",
+                },
+
+              thesisTriggers:
+                Array.isArray(
+                  rawIntelligence.thesisTriggers,
+                )
+                  ? rawIntelligence.thesisTriggers
+                  : [],
+            }
+          : {
+              verdict:
+                "Neutral",
+
+              confidence: 50,
+
+              momentum: 50,
+
+              volatility: 50,
+
+              risk:
+                "Moderate",
+
+              marketSummary:
+                "Market conditions are being monitored.",
+
+              whyItMatters: [],
+
+              riskRadar: [],
+
+              scenarios: [],
+
+              watchItems: [],
+
+              nextBestAction: {
+                title:
+                  "Monitor",
+
+                reason:
+                  "Continue monitoring market conditions.",
+              },
+
+              thesisTriggers: [],
+            };
+
+      // --------------------------------------------------------
+      // ONEVEST SIGNAL CALCULATION
+      // --------------------------------------------------------
+
+      const confidence =
+        _clamp(
+          intelligence.confidence,
+        );
+
+      const momentum =
+        _clamp(
+          intelligence.momentum,
+        );
+
+      const volatility =
+        _clamp(
+          intelligence.volatility,
+        );
+
+      const stability =
+        _clamp(
+          100 - volatility,
+        );
+
+      const signalScore =
+        _clamp(
+          (confidence * 0.35) +
+          (momentum * 0.40) +
+          (stability * 0.25),
+        );
+
+      // --------------------------------------------------------
+      // PREMIUM METADATA
+      // --------------------------------------------------------
+
+      const premium = {
+        tier:
+          "ONEVEST_PREMIUM",
+
+        paymentProtected:
+          true,
+
+        x402Network:
+          "Algorand TestNet",
+
+        signalScore:
+          Math.round(
+            signalScore,
+          ),
+
+        confidence:
+          Math.round(
+            confidence,
+          ),
+
+        momentum:
+          Math.round(
+            momentum,
+          ),
+
+        stability:
+          Math.round(
+            stability,
+          ),
+
+        volatility:
+          Math.round(
+            volatility,
+          ),
+
+        engine:
+          "OneVest AI Intelligence",
+
+        dataSource:
+          "Premium Market Data",
+
+        generatedAt:
+          new Date().toISOString(),
+      };
+
+      // --------------------------------------------------------
+      // FINAL PREMIUM RESPONSE
       // --------------------------------------------------------
 
       return c.json({
-        success: true,
+        success:
+          true,
 
-        payment,
+        premium:
+          true,
 
-        data,
+        service:
+          "OneVest Premium Intelligence",
+
+        symbol:
+          symbol,
+
+        payment:
+          payment,
+
+        market:
+          market,
+
+        intelligence:
+          intelligence,
+
+        premiumMetrics:
+          premium,
+
+        source:
+          "OneVest x402 + AI",
+
+        message:
+          "Premium OneVest intelligence unlocked after x402 payment.",
       });
-
     } catch (error) {
-      // --------------------------------------------------------
-      // HANDLE AGENT ERROR
-      // --------------------------------------------------------
-
+      console.error("");
       console.error(
-        "Agent error:",
-        error,
+        "=================================",
       );
+      console.error(
+        "PREMIUM AGENT ERROR",
+      );
+      console.error(
+        "=================================",
+      );
+      console.error(error);
 
       return c.json(
         {
           success: false,
 
           error:
-            "Agent request failed",
+            "Premium intelligence request failed",
 
           details:
             error instanceof Error
               ? error.message
               : String(error),
         },
-
         500,
       );
     }
@@ -570,19 +783,27 @@ try {
 );
 
 // ============================================================
-// START HTTP SERVER
+// UTILITY
 // ============================================================
-//
-// hostname: "0.0.0.0"
-//
-// allows the Android emulator to reach:
-//
-// http://10.0.2.2:4020
-//
-// instead of only:
-//
-// http://localhost:4020
-//
+
+function _clamp(
+  value: number,
+): number {
+  if (!Number.isFinite(value)) {
+    return 50;
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      value,
+    ),
+  );
+}
+
+// ============================================================
+// START SERVER
 // ============================================================
 
 serve(
@@ -610,6 +831,10 @@ serve(
 
     console.log(
       `Android emulator endpoint: http://10.0.2.2:${info.port}`,
+    );
+
+    console.log(
+      "Premium Intelligence: ENABLED",
     );
 
     console.log(

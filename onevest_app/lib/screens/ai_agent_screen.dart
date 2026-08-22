@@ -109,6 +109,41 @@ class AiAgentScreen extends StatefulWidget {
   State<AiAgentScreen> createState() => _AiAgentScreenState();
 }
 
+<<<<<<< HEAD
+=======
+class PaymentStorage {
+  static const String _key = 'onevest_payment_history';
+
+  static Future<List<Map<String, dynamic>>> loadPayments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_key);
+    if (saved == null) return [];
+
+    final result = <Map<String, dynamic>>[];
+    for (final item in saved) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map) {
+          result.add(Map<String, dynamic>.from(decoded));
+        }
+      } catch (_) {}
+    }
+    return result;
+  }
+
+  static Future<void> savePayments(List<Map<String, dynamic>> payments) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_key, payments.map(jsonEncode).toList());
+  }
+
+  static Future<void> addPayment(Map<String, dynamic> payment) async {
+    final payments = await loadPayments();
+    payments.insert(0, payment);
+    await savePayments(payments);
+  }
+}
+
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
 class _AiAgentScreenState extends State<AiAgentScreen> {
   final TextEditingController symbolController =
       TextEditingController(text: 'AAPL');
@@ -564,10 +599,14 @@ static const int _maxPinAttempts = 3;
       final result = Map<String, dynamic>.from(decoded);
 
       if (result['success'] != true) {
+<<<<<<< HEAD
         throw Exception(
           result['error']?.toString() ??
               'X402 REQUEST FAILED',
         );
+=======
+        throw Exception(result['error']?.toString() ?? 'x402 request failed.');
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
       }
 
       Map<String, dynamic> payment = {};
@@ -580,6 +619,7 @@ static const int _maxPinAttempts = 3;
 
       final tx = payment['transaction']?.toString() ?? '';
 
+<<<<<<< HEAD
       Map<String, dynamic> serviceData = {};
 
       if (result['data'] is Map) {
@@ -600,6 +640,30 @@ static const int _maxPinAttempts = 3;
         throw Exception(
           'PAYMENT SETTLED BUT TRANSACTION ID WAS NOT RETURNED',
         );
+=======
+      // Actual x402 API response has these fields at the top level.
+      Map<String, dynamic> market = {};
+      if (result['market'] is Map) {
+        market = Map<String, dynamic>.from(result['market']);
+      }
+
+      final intelligence = result['intelligence'] is Map
+          ? Map<String, dynamic>.from(result['intelligence'])
+          : <String, dynamic>{};
+
+      final premiumMetrics = result['premiumMetrics'] is Map
+          ? Map<String, dynamic>.from(result['premiumMetrics'])
+          : <String, dynamic>{};
+
+      market = {
+        ...market,
+        'intelligence': intelligence,
+        'premiumMetrics': premiumMetrics,
+      };
+
+      if (tx.isEmpty) {
+        throw Exception('Payment settled but transaction ID was not returned.');
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
       }
 
       final paymentRecord = <String, dynamic>{
@@ -653,21 +717,22 @@ static const int _maxPinAttempts = 3;
   ) async {
     if (txId.isEmpty) return;
 
-    final url = Uri.parse(
-      'https://testnet.explorer.perawallet.app/tx/$txId',
-    );
+    final url = Uri.parse('https://testnet.explorer.perawallet.app/tx/$txId');
 
     try {
-      await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      );
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (e) {
       if (!mounted) return;
+<<<<<<< HEAD
 
       _snack(
         'COULD NOT OPEN EXPLORER',
       );
+=======
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open explorer: $e')));
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
     }
   }
 
@@ -794,9 +859,32 @@ static const int _maxPinAttempts = 3;
 
     return Scaffold(
       backgroundColor: _bg,
+<<<<<<< HEAD
 
       appBar: _topBar(),
 
+=======
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: const Text(
+          'AI Market Agent',
+          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: .5),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Payment history',
+            icon: const Icon(Icons.receipt_long_rounded, color: _teal),
+            onPressed: _showHistoryPopup,
+          ),
+        ],
+      ),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
       body: SafeArea(
         child: RefreshIndicator(
           color: _teal,
@@ -986,6 +1074,7 @@ static const int _maxPinAttempts = 3;
               shape: BoxShape.circle,
             ),
           ),
+<<<<<<< HEAD
 
           const SizedBox(width: 6),
 
@@ -998,6 +1087,13 @@ static const int _maxPinAttempts = 3;
                   FontWeight.w900,
               letterSpacing: .8,
             ),
+=======
+          const SizedBox(height: 10),
+          const Text(
+            'Your AI agent requests premium market data, '
+            'handles x402 payment, and unlocks the result automatically.',
+            style: TextStyle(color: _muted, fontSize: 14, height: 1.5),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
         ],
       ),
@@ -1400,6 +1496,7 @@ static const int _maxPinAttempts = 3;
           ),
 
           const SizedBox(height: 8),
+<<<<<<< HEAD
 
           Container(
             height: 55,
@@ -1471,6 +1568,32 @@ static const int _maxPinAttempts = 3;
                     const EdgeInsets.symmetric(
                   vertical: 17,
                 ),
+=======
+          TextField(
+            controller: symbolController,
+            textCapitalization: TextCapitalization.characters,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Enter symbol e.g. AAPL',
+              hintStyle: const TextStyle(color: _muted),
+              prefixIcon: const Icon(Icons.search_rounded, color: _teal),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.close_rounded, color: _muted),
+                onPressed: () => symbolController.clear(),
+              ),
+              filled: true,
+              fillColor: _surface2,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _teal),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
               ),
 
               onSubmitted: (_) =>
@@ -1636,10 +1759,17 @@ static const int _maxPinAttempts = 3;
             CrossAxisAlignment.start,
 
         children: [
+<<<<<<< HEAD
           _sectionHeader(
             Icons.bolt_rounded,
             'AUTONOMOUS PAYMENT',
             _purple,
+=======
+          const SizedBox(
+            width: 45,
+            height: 45,
+            child: CircularProgressIndicator(color: _teal, strokeWidth: 3),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
 
           const SizedBox(height: 15),
@@ -1694,6 +1824,7 @@ static const int _maxPinAttempts = 3;
                     _purple.withOpacity(.14),
               ),
             ),
+<<<<<<< HEAD
 
             child: Row(
               crossAxisAlignment:
@@ -1722,6 +1853,15 @@ static const int _maxPinAttempts = 3;
                 ),
               ],
             ),
+=======
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Requesting premium data → creating x402 payment → '
+            'settling on Algorand → unlocking intelligence',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _muted, fontSize: 12, height: 1.45),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
         ],
       ),
@@ -1824,6 +1964,7 @@ static const int _maxPinAttempts = 3;
 
       child: Column(
         children: [
+<<<<<<< HEAD
           Container(
             width: 52,
             height: 52,
@@ -1849,6 +1990,14 @@ static const int _maxPinAttempts = 3;
                 color: _teal,
                 strokeWidth: 2.5,
               ),
+=======
+          const Icon(Icons.error_outline_rounded, color: _red),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              errorMessage!,
+              style: const TextStyle(color: _red, fontSize: 13, height: 1.4),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
             ),
           ),
 
@@ -1992,6 +2141,7 @@ static const int _maxPinAttempts = 3;
   // ==============================================================
 
   Widget _marketPreview() {
+<<<<<<< HEAD
     final symbol =
         marketData?['symbol']
                 ?.toString() ??
@@ -2010,6 +2160,15 @@ static const int _maxPinAttempts = 3;
     return InkWell(
       borderRadius:
           BorderRadius.circular(_radius),
+=======
+    final symbol = marketData?['symbol']?.toString() ?? 'AAPL';
+    final price = marketData?['price']?.toString() ?? '-';
+    final change = marketData?['changePercent']?.toString() ?? '-';
+    final intelligence = marketData?['intelligence'] is Map
+        ? Map<String, dynamic>.from(marketData!['intelligence'])
+        : <String, dynamic>{};
+    final verdict = intelligence['verdict']?.toString() ?? 'Premium';
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
 
       onTap: _showMarketPopup,
 
@@ -2078,6 +2237,7 @@ static const int _maxPinAttempts = 3;
                     ],
                   ),
                 ),
+<<<<<<< HEAD
 
                 Text(
                   change == '-'
@@ -2089,6 +2249,29 @@ static const int _maxPinAttempts = 3;
                     fontWeight:
                         FontWeight.w900,
                   ),
+=======
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      change == '-' ? '-' : '$change%',
+                      style: const TextStyle(
+                        color: _green,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      verdict,
+                      style: const TextStyle(
+                        color: _green,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
                 ),
               ],
             ),
@@ -2096,6 +2279,7 @@ static const int _maxPinAttempts = 3;
             const SizedBox(height: 14),
 
             Text(
+<<<<<<< HEAD
               '\$$price',
               style: _mono.copyWith(
                 color: _white,
@@ -2103,6 +2287,10 @@ static const int _maxPinAttempts = 3;
                 fontWeight:
                     FontWeight.w900,
               ),
+=======
+              '₹$price',
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
             ),
 
             const SizedBox(height: 8),
@@ -2183,6 +2371,7 @@ static const int _maxPinAttempts = 3;
               ),
             )
           else
+<<<<<<< HEAD
             ...recent.map(
               (payment) =>
                   _historyItem(
@@ -2190,11 +2379,15 @@ static const int _maxPinAttempts = 3;
                 compact: true,
               ),
             ),
+=======
+            ...recent.map((payment) => _historyItem(payment, compact: true)),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
         ],
       ),
     );
   }
 
+<<<<<<< HEAD
   Widget _historyItem(
     Map<String, dynamic> payment, {
     bool compact = false,
@@ -2208,6 +2401,11 @@ static const int _maxPinAttempts = 3;
         payment['transaction']
                 ?.toString() ??
             '';
+=======
+  Widget _historyItem(Map<String, dynamic> payment, {bool compact = false}) {
+    final symbol = payment['symbol']?.toString() ?? '-';
+    final tx = payment['transaction']?.toString() ?? '';
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
 
     return InkWell(
       borderRadius:
@@ -2268,11 +2466,16 @@ static const int _maxPinAttempts = 3;
                   const SizedBox(height: 4),
 
                   Text(
+<<<<<<< HEAD
                     '0.005 USDC  •  ALGORAND TESTNET',
                     style: _mono.copyWith(
                       color: _muted,
                       fontSize: 8,
                     ),
+=======
+                    '0.005 USDC • Algorand TestNet',
+                    style: const TextStyle(color: _muted, fontSize: 10),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
                   ),
 
                   if (!compact &&
@@ -2290,12 +2493,16 @@ static const int _maxPinAttempts = 3;
                 ],
               ),
             ),
+<<<<<<< HEAD
 
             const Icon(
               Icons.chevron_right_rounded,
               color: _muted,
               size: 19,
             ),
+=======
+            const Icon(Icons.chevron_right_rounded, color: _muted),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ],
         ),
       ),
@@ -2319,6 +2526,7 @@ static const int _maxPinAttempts = 3;
 
       decoration: BoxDecoration(
         color: _surface,
+<<<<<<< HEAD
 
         borderRadius:
             BorderRadius.circular(_radius),
@@ -2329,6 +2537,10 @@ static const int _maxPinAttempts = 3;
               Color(0xFF1E2C48),
         ),
 
+=======
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor ?? _teal.withValues(alpha: .28)),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
         boxShadow: [
           BoxShadow(
             color:
@@ -2382,6 +2594,7 @@ static const int _maxPinAttempts = 3;
     );
   }
 
+<<<<<<< HEAD
   // ==============================================================
   // ICON
   // ==============================================================
@@ -2391,11 +2604,15 @@ static const int _maxPinAttempts = 3;
     Color color, {
     double size = 46,
   }) {
+=======
+  Widget _iconBox(IconData icon, Color color, {double size = 44}) {
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
     return Container(
       width: size,
       height: size,
 
       decoration: BoxDecoration(
+<<<<<<< HEAD
         color: color.withOpacity(.09),
 
         borderRadius:
@@ -2419,6 +2636,11 @@ static const int _maxPinAttempts = 3;
         icon,
         color: color,
         size: size * .43,
+=======
+        color: color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: color.withValues(alpha: .25)),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
       ),
     );
   }
@@ -2429,6 +2651,7 @@ static const int _maxPinAttempts = 3;
 
   Widget _livePill() {
     return Container(
+<<<<<<< HEAD
       padding:
           const EdgeInsets.symmetric(
         horizontal: 10,
@@ -2445,6 +2668,13 @@ static const int _maxPinAttempts = 3;
           color:
               _green.withOpacity(.30),
         ),
+=======
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: _green.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _green.withValues(alpha: .35)),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
       ),
 
       child: Row(
@@ -2485,6 +2715,7 @@ static const int _maxPinAttempts = 3;
   }) {
     return SafeArea(
       child: Container(
+<<<<<<< HEAD
         constraints: BoxConstraints(
           maxHeight:
               MediaQuery.sizeOf(context)
@@ -2498,6 +2729,12 @@ static const int _maxPinAttempts = 3;
           10,
           18,
           20,
+=======
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(11),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
         ),
 
         decoration:
@@ -2575,6 +2812,7 @@ class _FlowSheet extends StatelessWidget {
             CrossAxisAlignment.start,
 
         children: [
+<<<<<<< HEAD
           _SheetHandle(),
 
           _SheetTitle(
@@ -2586,6 +2824,10 @@ class _FlowSheet extends StatelessWidget {
                 _green,
           ),
 
+=======
+          _sheetHandle(),
+          _sheetTitle(Icons.smart_toy_rounded, 'AI AGENT + x402', _green),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           const SizedBox(height: 8),
 
           Text(
@@ -2597,6 +2839,7 @@ class _FlowSheet extends StatelessWidget {
           ),
 
           const SizedBox(height: 20),
+<<<<<<< HEAD
 
           _FlowRow(
             number: '01',
@@ -2626,6 +2869,20 @@ class _FlowSheet extends StatelessWidget {
             number: '05',
             text:
                 'PREMIUM MARKET DATA IS UNLOCKED',
+=======
+          _flowRow('1', 'User requests premium market data'),
+          _flowRow('2', 'AI Agent calls the paid API'),
+          _flowRow('3', 'x402 payment is automatically created'),
+          _flowRow('4', 'Payment settles on Algorand TestNet'),
+          _flowRow('5', 'Premium market data is unlocked'),
+          const SizedBox(height: 8),
+          _infoBox(
+            Icons.security_rounded,
+            'Secure agentic payment',
+            'The agent handles the payment flow automatically '
+                'before returning premium data.',
+            _teal,
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
         ],
       ),
@@ -2655,6 +2912,7 @@ class _SuccessSheet extends StatelessWidget {
     return _SheetContainer(
       child: Column(
         children: [
+<<<<<<< HEAD
           _SheetHandle(),
 
           const SizedBox(height: 5),
@@ -2668,6 +2926,12 @@ class _SuccessSheet extends StatelessWidget {
           const SizedBox(height: 14),
 
           Text(
+=======
+          _sheetHandle(),
+          const Icon(Icons.check_circle_rounded, color: _green, size: 65),
+          const SizedBox(height: 12),
+          const Text(
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
             'PAYMENT SETTLED',
             style: _mono.copyWith(
               color: _green,
@@ -2706,6 +2970,7 @@ class _SuccessSheet extends StatelessWidget {
 
           SizedBox(
             width: double.infinity,
+<<<<<<< HEAD
 
             child:
                 OutlinedButton.icon(
@@ -2727,6 +2992,14 @@ class _SuccessSheet extends StatelessWidget {
                   fontWeight:
                       FontWeight.w900,
                 ),
+=======
+            child: OutlinedButton.icon(
+              onPressed: onViewTransaction,
+              icon: const Icon(Icons.open_in_new_rounded, color: _teal),
+              label: const Text(
+                'VIEW TRANSACTION',
+                style: TextStyle(color: _teal, fontWeight: FontWeight.w800),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
               ),
 
               style:
@@ -2743,6 +3016,14 @@ class _SuccessSheet extends StatelessWidget {
               ),
             ),
           ),
+<<<<<<< HEAD
+=======
+          const SizedBox(height: 5),
+          Text(
+            transactionId.isEmpty ? '' : _shortTxStatic(transactionId),
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
         ],
       ),
     );
@@ -2760,6 +3041,7 @@ class _MarketSheet extends StatelessWidget {
     required this.data,
   });
 
+<<<<<<< HEAD
   @override
   Widget build(
     BuildContext context,
@@ -2787,11 +3069,142 @@ class _MarketSheet extends StatelessWidget {
             '-';
 
     return _SheetContainer(
+=======
+  String _text(dynamic value, [String fallback = '-']) {
+    if (value == null) return fallback;
+    final text = value.toString().trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  Color _riskColor(String value) {
+    switch (value.toLowerCase()) {
+      case 'low':
+        return _green;
+      case 'medium':
+      case 'moderate':
+        return Colors.orangeAccent;
+      case 'high':
+        return Colors.redAccent;
+      default:
+        return _muted;
+    }
+  }
+
+  Color _verdictColor(String value) {
+    switch (value.toLowerCase()) {
+      case 'bullish':
+      case 'positive':
+      case 'buy':
+        return _green;
+      case 'bearish':
+      case 'negative':
+      case 'sell':
+        return Colors.redAccent;
+      default:
+        return Colors.amberAccent;
+    }
+  }
+
+  Widget _sectionTitle(IconData icon, String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 19),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricCard(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surface2,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 5),
+            child: Icon(Icons.circle, size: 5, color: _teal),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: _muted, fontSize: 11, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _riskRow(Map<String, dynamic> item) {
+    final name = _text(item['name']);
+    final level = _text(item['level']);
+    final explanation = _text(item['explanation']);
+
+    final color = _riskColor(level);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
       child: Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
 
         children: [
+<<<<<<< HEAD
           _SheetHandle(),
 
           _SheetTitle(
@@ -2867,8 +3280,704 @@ class _MarketSheet extends StatelessWidget {
                 'RESULT RETURNED AFTER THE X402 PAYMENT FLOW.',
             color:
                 _purple,
+=======
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  level.toUpperCase(),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            explanation,
+            style: const TextStyle(color: _muted, fontSize: 10, height: 1.4),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _scenarioRow(Map<String, dynamic> item, double currentPrice) {
+    final movement = (item['movement'] as num?)?.toDouble() ?? 0;
+
+    final description = _text(item['description']);
+
+    final projected = currentPrice * (1 + movement / 100);
+
+    final isPositive = movement > 0;
+    final isNegative = movement < 0;
+
+    final color = isPositive
+        ? _green
+        : isNegative
+        ? Colors.redAccent
+        : Colors.amberAccent;
+
+    final movementText = movement > 0
+        ? '+${movement.toStringAsFixed(0)}%'
+        : '${movement.toStringAsFixed(0)}%';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.22)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Text(
+              movementText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Projected price: ₹${projected.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 9,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _triggerRow(Map<String, dynamic> item) {
+    final type = _text(item['type']).toLowerCase();
+    final trigger = _text(item['trigger']);
+    final explanation = _text(item['explanation']);
+
+    Color color;
+    IconData icon;
+
+    if (type == 'positive') {
+      color = _green;
+      icon = Icons.trending_up_rounded;
+    } else if (type == 'negative') {
+      color = Colors.redAccent;
+      icon = Icons.trending_down_rounded;
+    } else {
+      color = Colors.amberAccent;
+      icon = Icons.remove_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _surface2,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: color, size: 17),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  type.toUpperCase(),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  trigger,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  explanation,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 9,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final symbol = _text(data['symbol'], 'AAPL');
+
+    final price = (data['price'] as num?)?.toDouble();
+
+    final changePercent = (data['changePercent'] as num?)?.toDouble();
+
+    final previous = _text(data['previousClose']);
+
+    final volume = _text(data['volume']);
+
+    final intelligence = data['intelligence'] is Map
+        ? Map<String, dynamic>.from(data['intelligence'])
+        : <String, dynamic>{};
+
+    final premiumMetrics = data['premiumMetrics'] is Map
+        ? Map<String, dynamic>.from(data['premiumMetrics'])
+        : <String, dynamic>{};
+
+    final verdict = _text(intelligence['verdict'], 'Neutral');
+
+    final confidence = _text(intelligence['confidence'], '-');
+
+    final momentum = _text(intelligence['momentum'], '-');
+
+    final volatility = _text(intelligence['volatility'], '-');
+
+    final risk = _text(intelligence['risk'], 'Unknown');
+
+    final summary = _text(intelligence['marketSummary']);
+
+    final whyItMatters = intelligence['whyItMatters'] is List
+        ? List<dynamic>.from(intelligence['whyItMatters'])
+        : <dynamic>[];
+
+    final riskRadar = intelligence['riskRadar'] is List
+        ? List<Map<String, dynamic>>.from(
+            (intelligence['riskRadar'] as List).whereType<Map>().map(
+              (e) => Map<String, dynamic>.from(e),
+            ),
+          )
+        : <Map<String, dynamic>>[];
+
+    final scenarios = intelligence['scenarios'] is List
+        ? List<Map<String, dynamic>>.from(
+            (intelligence['scenarios'] as List).whereType<Map>().map(
+              (e) => Map<String, dynamic>.from(e),
+            ),
+          )
+        : <Map<String, dynamic>>[];
+
+    final watchItems = intelligence['watchItems'] is List
+        ? List<dynamic>.from(intelligence['watchItems'])
+        : <dynamic>[];
+
+    final nextAction = intelligence['nextBestAction'] is Map
+        ? Map<String, dynamic>.from(intelligence['nextBestAction'])
+        : <String, dynamic>{};
+
+    final triggers = intelligence['thesisTriggers'] is List
+        ? List<Map<String, dynamic>>.from(
+            (intelligence['thesisTriggers'] as List).whereType<Map>().map(
+              (e) => Map<String, dynamic>.from(e),
+            ),
+          )
+        : <Map<String, dynamic>>[];
+
+    final signalScore = _text(premiumMetrics['signalScore']);
+
+    final premiumConfidence = _text(premiumMetrics['confidence']);
+
+    final premiumMomentum = _text(premiumMetrics['momentum']);
+
+    final stability = _text(premiumMetrics['stability']);
+
+    final premiumVolatility = _text(premiumMetrics['volatility']);
+
+    final engine = _text(premiumMetrics['engine'], 'OneVest AI Intelligence');
+
+    final network = _text(premiumMetrics['x402Network'], 'Algorand TestNet');
+
+    final dataSource = _text(
+      premiumMetrics['dataSource'],
+      'Premium Market Data',
+    );
+
+    final currentPrice = price ?? 0;
+
+    final verdictColor = _verdictColor(verdict);
+
+    final riskColor = _riskColor(risk);
+
+    return _sheet(
+      context,
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sheetHandle(),
+
+              // =================================================
+              // HEADER
+              // =================================================
+              _sheetTitle(
+                Icons.lock_open_rounded,
+                'PREMIUM MARKET DATA',
+                _green,
+              ),
+
+              const SizedBox(height: 18),
+
+              Text(
+                symbol,
+                style: const TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              const SizedBox(height: 5),
+
+              Text(
+                price == null ? '\$-' : '\$${price.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              const SizedBox(height: 5),
+
+              Text(
+                changePercent == null
+                    ? '-%'
+                    : '${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(4)}%',
+                style: TextStyle(
+                  color: changePercent != null && changePercent < 0
+                      ? Colors.redAccent
+                      : _green,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              _dataRow('Previous Close', '\$$previous'),
+
+              _dataRow('Volume', volume),
+
+              _dataRow('Source', 'Yahoo Finance + OneVest AI'),
+
+              const SizedBox(height: 10),
+
+              _infoBox(
+                Icons.auto_awesome_rounded,
+                'AI unlocked this data',
+                'This result was returned after the x402 payment flow.',
+                _purple,
+              ),
+
+              const SizedBox(height: 24),
+
+              // =================================================
+              // AI VERDICT
+              // =================================================
+              _sectionTitle(Icons.psychology_rounded, 'AI VERDICT', _purple),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: _surface2,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: verdictColor.withOpacity(0.35)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      verdict.toUpperCase(),
+                      style: TextStyle(
+                        color: verdictColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    Row(
+                      children: [
+                        _metricCard('Confidence', '$confidence%', _blue),
+                        const SizedBox(width: 7),
+                        _metricCard('Momentum', '$momentum', _teal),
+                        const SizedBox(width: 7),
+                        _metricCard(
+                          'Volatility',
+                          '$volatility',
+                          Colors.orangeAccent,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Row(
+                      children: [
+                        const Text(
+                          'RISK  ',
+                          style: TextStyle(
+                            color: _muted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          risk.toUpperCase(),
+                          style: TextStyle(
+                            color: riskColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // =================================================
+              // MARKET SUMMARY
+              // =================================================
+              if (summary != '-') ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(Icons.analytics_rounded, 'MARKET SUMMARY', _teal),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: _surface2,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: _teal.withOpacity(0.2)),
+                  ),
+                  child: Text(
+                    summary,
+                    style: const TextStyle(
+                      color: _muted,
+                      fontSize: 11,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+
+              // =================================================
+              // WHY IT MATTERS
+              // =================================================
+              if (whyItMatters.isNotEmpty) ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(
+                  Icons.lightbulb_outline_rounded,
+                  'WHY IT MATTERS',
+                  Colors.amberAccent,
+                ),
+
+                ...whyItMatters.map((item) => _bullet(item.toString())),
+              ],
+
+              // =================================================
+              // RISK RADAR
+              // =================================================
+              if (riskRadar.isNotEmpty) ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(
+                  Icons.warning_amber_rounded,
+                  'RISK RADAR',
+                  Colors.orangeAccent,
+                ),
+
+                ...riskRadar.map(_riskRow),
+              ],
+
+              // =================================================
+              // SCENARIO ANALYSIS
+              // =================================================
+              if (scenarios.isNotEmpty) ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(
+                  Icons.show_chart_rounded,
+                  'SCENARIO ANALYSIS',
+                  _blue,
+                ),
+
+                ...scenarios.map(
+                  (scenario) => _scenarioRow(scenario, currentPrice),
+                ),
+              ],
+
+              // =================================================
+              // WATCH ITEMS
+              // =================================================
+              if (watchItems.isNotEmpty) ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(Icons.visibility_rounded, 'WATCH ITEMS', _teal),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: _surface2,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: _teal.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    children: watchItems
+                        .map((item) => _bullet(item.toString()))
+                        .toList(),
+                  ),
+                ),
+              ],
+
+              // =================================================
+              // NEXT BEST ACTION
+              // =================================================
+              if (nextAction.isNotEmpty) ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(
+                  Icons.track_changes_rounded,
+                  'NEXT BEST ACTION',
+                  _green,
+                ),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _surface2,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: _green.withOpacity(0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _text(nextAction['title'], 'MONITOR').toUpperCase(),
+                        style: const TextStyle(
+                          color: _green,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _text(nextAction['reason']),
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 10,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              // =================================================
+              // THESIS TRIGGERS
+              // =================================================
+              if (triggers.isNotEmpty) ...[
+                const SizedBox(height: 24),
+
+                _sectionTitle(
+                  Icons.bolt_rounded,
+                  'THESIS TRIGGERS',
+                  Colors.amberAccent,
+                ),
+
+                ...triggers.map(_triggerRow),
+              ],
+
+              // =================================================
+              // PREMIUM METRICS
+              // =================================================
+              const SizedBox(height: 24),
+
+              _sectionTitle(
+                Icons.workspace_premium_rounded,
+                'PREMIUM METRICS',
+                _purple,
+              ),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: _surface2,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: _purple.withOpacity(0.28)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        _metricCard('Signal', signalScore, _purple),
+                        const SizedBox(width: 7),
+                        _metricCard('Confidence', '$premiumConfidence%', _blue),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Row(
+                      children: [
+                        _metricCard('Momentum', premiumMomentum, _teal),
+                        const SizedBox(width: 7),
+                        _metricCard('Stability', stability, _green),
+                        const SizedBox(width: 7),
+                        _metricCard(
+                          'Volatility',
+                          premiumVolatility,
+                          Colors.orangeAccent,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    _dataRow('AI Engine', engine),
+
+                    _dataRow('Data Source', dataSource),
+
+                    _dataRow('Network', network),
+
+                    const SizedBox(height: 12),
+
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _purple.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: _purple.withOpacity(0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.lock_rounded,
+                            color: _green,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              'x402 PAYMENT PROTECTED • PREMIUM INTELLIGENCE UNLOCKED',
+                              style: const TextStyle(
+                                color: _green,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // =================================================
+              // FOOTER
+              // =================================================
+              Center(
+                child: Text(
+                  'OneVest x402 + Groq AI',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.35),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2883,10 +3992,7 @@ class _HistorySheet extends StatelessWidget {
   final Future<void> Function(String)
       onTransaction;
 
-  const _HistorySheet({
-    required this.payments,
-    required this.onTransaction,
-  });
+  const _HistorySheet({required this.payments, required this.onTransaction});
 
   @override
   Widget build(
@@ -2898,6 +4004,7 @@ class _HistorySheet extends StatelessWidget {
             CrossAxisAlignment.start,
 
         children: [
+<<<<<<< HEAD
           _SheetHandle(),
 
           _SheetTitle(
@@ -2911,6 +4018,11 @@ class _HistorySheet extends StatelessWidget {
 
           const SizedBox(height: 15),
 
+=======
+          _sheetHandle(),
+          _sheetTitle(Icons.receipt_long_rounded, 'PAYMENT HISTORY', _purple),
+          const SizedBox(height: 14),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           if (payments.isEmpty)
             Center(
               child: Padding(
@@ -2965,6 +4077,7 @@ class _HistorySheet extends StatelessWidget {
                       fontWeight:
                           FontWeight.w900,
                     ),
+<<<<<<< HEAD
                   ),
 
                   subtitle: Text(
@@ -2991,6 +4104,29 @@ class _HistorySheet extends StatelessWidget {
                   },
                 );
               },
+=======
+                    title: Text(
+                      '$symbol Market Intelligence',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      '${p['amount'] ?? '0.005 USDC'} • '
+                      '${p['network'] ?? 'Algorand TestNet'}',
+                      style: const TextStyle(color: _muted, fontSize: 11),
+                    ),
+                    trailing: const Icon(
+                      Icons.open_in_new_rounded,
+                      color: _teal,
+                      size: 19,
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      onTransaction(tx);
+                    },
+                  );
+                },
+              ),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
             ),
         ],
       ),
@@ -3027,6 +4163,7 @@ class _DetailsSheet extends StatelessWidget {
             CrossAxisAlignment.start,
 
         children: [
+<<<<<<< HEAD
           _SheetHandle(),
 
           _SheetTitle(
@@ -3038,9 +4175,14 @@ class _DetailsSheet extends StatelessWidget {
                 _teal,
           ),
 
+=======
+          _sheetHandle(),
+          _sheetTitle(Icons.receipt_long_rounded, 'TRANSACTION DETAILS', _teal),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           const SizedBox(height: 18),
 
           Text(
+<<<<<<< HEAD
             '$symbol MARKET INTELLIGENCE',
             style: _mono.copyWith(
               color: _white,
@@ -3048,6 +4190,10 @@ class _DetailsSheet extends StatelessWidget {
               fontWeight:
                   FontWeight.w900,
             ),
+=======
+            '$symbol Market Intelligence',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
 
           const SizedBox(height: 20),
@@ -3068,6 +4214,7 @@ class _DetailsSheet extends StatelessWidget {
           ),
 
           const SizedBox(height: 8),
+<<<<<<< HEAD
 
           Text(
             'TRANSACTION ID',
@@ -3077,16 +4224,25 @@ class _DetailsSheet extends StatelessWidget {
               fontWeight:
                   FontWeight.w900,
             ),
+=======
+          const Text(
+            'Transaction ID',
+            style: TextStyle(color: _muted, fontSize: 11),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
 
           const SizedBox(height: 6),
 
           SelectableText(
             transaction,
+<<<<<<< HEAD
             style: _mono.copyWith(
               color: _white,
               fontSize: 8,
             ),
+=======
+            style: const TextStyle(fontSize: 11, color: Colors.white70),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
           ),
 
           const SizedBox(height: 18),
@@ -3139,6 +4295,7 @@ class _DetailsSheet extends StatelessWidget {
 // SHARED SHEET WIDGETS
 // ==================================================================
 
+<<<<<<< HEAD
 class _SheetContainer
     extends StatelessWidget {
   final Widget child;
@@ -3180,11 +4337,75 @@ class _SheetContainer
 
           border: Border(
             top: BorderSide(
+=======
+Widget _sheet(BuildContext context, {required Widget child}) {
+  return SafeArea(
+    child: Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .82,
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      decoration: const BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        border: Border(top: BorderSide(color: _teal, width: 1)),
+      ),
+      child: SingleChildScrollView(child: child),
+    ),
+  );
+}
+
+Widget _sheetHandle() {
+  return Center(
+    child: Container(
+      width: 42,
+      height: 4,
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white24,
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
+  );
+}
+
+Widget _sheetTitle(IconData icon, String title, Color color) {
+  return Row(
+    children: [
+      Icon(icon, color: color),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          title,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .8,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _flowRow(String number, String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 15,
+          backgroundColor: _teal.withValues(alpha: .14),
+          child: Text(
+            number,
+            style: const TextStyle(
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
               color: _teal,
             ),
           ),
         ),
 
+<<<<<<< HEAD
         child:
             SingleChildScrollView(
           child: child,
@@ -3208,6 +4429,63 @@ class _SheetHandle
         margin:
             const EdgeInsets.only(
           bottom: 20,
+=======
+Widget _infoBox(IconData icon, String title, String subtitle, Color color) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .07),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: color.withValues(alpha: .18)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _dataRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 11),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: const TextStyle(color: _muted, fontSize: 12),
+          ),
+>>>>>>> 16cf4bb4 (Complete OneVest AI x402 premium intelligence)
         ),
 
         decoration:

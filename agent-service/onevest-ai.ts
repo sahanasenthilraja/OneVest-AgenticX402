@@ -1,5 +1,4 @@
 import { config } from "dotenv";
-import { GoogleGenAI, Type } from "@google/genai";
 import algosdk from "algosdk";
 
 import {
@@ -15,21 +14,27 @@ import {
 import {
   wrapFetchWithPayment,
 } from "@x402-avm/fetch";
+
 config();
 
 // ============================================================
-// GEMINI CONFIGURATION
+// GROQ CONFIGURATION
 // ============================================================
 
-const apiKey = process.env.GEMINI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-if (!apiKey) {
-  throw new Error("GEMINI_API_KEY is missing from .env");
+const GROQ_URL =
+  "https://api.groq.com/openai/v1/chat/completions";
+
+const GROQ_MODEL =
+  "openai/gpt-oss-20b";
+
+if (!GROQ_API_KEY) {
+  throw new Error(
+    "GROQ_API_KEY is missing from .env",
+  );
 }
 
-const ai = new GoogleGenAI({
-  apiKey,
-});
 // ============================================================
 // x402 PAYMENT CONFIGURATION
 // ============================================================
@@ -72,49 +77,147 @@ const fetchWithPayment =
   wrapFetchWithPayment(
     fetch,
     x402ClientInstance,
-);
+  );
 
 // ============================================================
-// ONEVEST MARKET INTELLIGENCE TOOL
+// TYPES
 // ============================================================
-//
-// This is the first real tool available to the AI agent.
-//
-// Gemini can decide:
-// "I need market intelligence for AAPL."
-//
-// Then our backend executes this function.
-//
-// The function calls your existing x402 endpoint:
-// /api/market-intelligence
-//
-// That endpoint handles the x402 payment flow.
-//
+
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+type GroqMessage = {
+  role:
+    | "system"
+    | "user"
+    | "assistant"
+    | "tool";
+
+  content?: string | null;
+
+  tool_calls?: ToolCall[];
+
+  tool_call_id?: string;
+};
+
+// ============================================================
+// SYSTEM PROMPT
+// ============================================================
+
+const SYSTEM_PROMPT = `
+You are OneVest AI, an intelligent personal finance assistant.
+
+Your responsibilities:
+
+- Help users understand investments.
+- Explain financial concepts clearly.
+- Explain diversification, risk and asset allocation.
+- Analyze portfolio information when provided.
+- Give useful educational financial insights.
+- Use live market intelligence whenever current market
+  information is required.
+- Never invent current stock prices or market data.
+- Never claim certainty about future market movements.
+- Never guarantee investment returns.
+- Clearly distinguish educational information from
+  professional financial advice.
+- Keep answers concise, clear and useful.
+- Use Indian Rupees (INR) when the market data is in INR.
+
+IMPORTANT MARKET RULE:
+
+When the user asks about:
+- current stock price
+- current market conditions
+- recent stock performance
+- latest stock information
+- current stock analysis
+- market outlook
+- risk of a particular stock
+- momentum
+- volatility
+- premium market intelligence
+- "should I buy/sell/hold" based on current data
+
+you MUST use the get_market_intelligence tool.
+
+Do not invent market data.
+
+When the tool returns market intelligence, base your
+answer on the returned data.
+
+You may summarize:
+- current price
+- previous close
+- change
+- change percentage
+- verdict
+- confidence
+- momentum
+- volatility
+- risk
+- market summary
+- risk radar
+- scenarios
+- watch items
+- next best action
+- thesis triggers
+
+For general educational questions such as:
+"What is diversification?"
+"What is a mutual fund?"
+"What is a SIP?"
+"What is asset allocation?"
+
+you normally do NOT need the market intelligence tool.
+
+Never guarantee profit.
+Never provide certainty about future prices.
+`;
+
+// ============================================================
+// MARKET INTELLIGENCE TOOL
+// ============================================================
 
 const marketIntelligenceTool = {
-  name: "get_market_intelligence",
+  type: "function",
 
-  description:
-    "Gets premium market intelligence for a stock symbol. " +
-    "Use this when the user asks about current market conditions, " +
-    "market intelligence, stock analysis, or recent information " +
-    "about a specific stock. Do not use this for general financial " +
-    "concept explanations that do not require live market data.",
+  function: {
+    name: "get_market_intelligence",
 
-  parameters: {
-    type: Type.OBJECT,
+    description:
+      "Gets premium live market intelligence for a stock. " +
+      "Use this for current stock prices, recent stock " +
+      "performance, market analysis, risk, momentum, " +
+      "volatility, outlook, or any question requiring " +
+      "current market information.",
 
-    properties: {
-      symbol: {
-        type: Type.STRING,
+    parameters: {
+      type: "object",
 
-        description:
-          "The stock ticker symbol, for example AAPL, MSFT, " +
-          "GOOGL, TSLA, or NVDA.",
+      properties: {
+        symbol: {
+          type: "string",
+
+          description:
+            "Stock ticker symbol. Examples: " +
+            "TCS.NS, INFY.NS, RELIANCE.NS, " +
+            "HDFCBANK.NS, AAPL, MSFT.",
+        },
       },
-    },
 
-    required: ["symbol"],
+      required: [
+        "symbol",
+      ],
+
+      additionalProperties: false,
+    },
   },
 };
 
@@ -125,8 +228,11 @@ const marketIntelligenceTool = {
 async function getMarketIntelligence(
   symbol: string,
 ): Promise<unknown> {
+
   const normalizedSymbol =
-    symbol.trim().toUpperCase();
+    symbol
+      .trim()
+      .toUpperCase();
 
   console.log("");
   console.log(
@@ -147,7 +253,22 @@ async function getMarketIntelligence(
   );
 
   // ----------------------------------------------------------
-  // Your existing OneVest x402 agent endpoint
+  // IMPORTANT:
+  // This calls the existing Agent endpoint.
+  //
+  // That endpoint already performs:
+  //
+  // Agent :4020
+  //      ↓
+  // x402 payment
+  //      ↓
+  // x402 service :4021
+  //      ↓
+  // Yahoo Finance
+  //      ↓
+  // Alpha Vantage
+  //      ↓
+  // Premium intelligence
   // ----------------------------------------------------------
 
   const agentUrl =
@@ -155,25 +276,23 @@ async function getMarketIntelligence(
     "http://localhost:4020";
 
   const url =
-    `${agentUrl}/api/market-intelligence?symbol=${encodeURIComponent(
+    `${agentUrl}/api/market-intelligence?symbol=` +
+    encodeURIComponent(
       normalizedSymbol,
-    )}`;
+    );
 
   console.log(
-    "Calling OneVest market intelligence endpoint:",
+    "Calling OneVest market intelligence:",
     url,
   );
 
-  // ----------------------------------------------------------
-  // Call the existing x402-powered endpoint
-  // ----------------------------------------------------------
-const response =
-  await fetchWithPayment(
-    url,
-    {
-      method: "GET",
-    },
-  );
+  const response =
+    await fetchWithPayment(
+      url,
+      {
+        method: "GET",
+      },
+    );
 
   const body =
     await response.text();
@@ -185,7 +304,8 @@ const response =
 
   if (!response.ok) {
     throw new Error(
-      `Market intelligence request failed (${response.status}): ${body}`,
+      `Market intelligence request failed ` +
+      `(${response.status}): ${body}`,
     );
   }
 
@@ -199,6 +319,147 @@ const response =
 }
 
 // ============================================================
+// GROQ REQUEST
+// ============================================================
+
+async function callGroq(
+  messages: GroqMessage[],
+  useTools = true,
+): Promise<any> {
+
+  const body: Record<string, unknown> = {
+    model: GROQ_MODEL,
+
+    messages,
+
+    temperature: 0.2,
+
+    max_tokens: 1800,
+  };
+
+  if (useTools) {
+    body.tools = [
+      marketIntelligenceTool,
+    ];
+
+    body.tool_choice = "auto";
+  }
+
+  for (
+    let attempt = 1;
+    attempt <= 3;
+    attempt++
+  ) {
+
+    try {
+
+      console.log(
+        `Groq request attempt ${attempt}/3...`,
+      );
+
+      const response =
+        await fetch(
+          GROQ_URL,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${GROQ_API_KEY}`,
+            },
+
+            body:
+              JSON.stringify(body),
+          },
+        );
+
+      console.log(
+        "Groq HTTP status:",
+        response.status,
+      );
+
+      const text =
+        await response.text();
+
+      if (!response.ok) {
+
+        console.error(
+          "Groq API error:",
+          text,
+        );
+
+        if (
+          response.status === 429 &&
+          attempt < 3
+        ) {
+          await new Promise(
+            (resolve) =>
+              setTimeout(
+                resolve,
+                2000 * attempt,
+              ),
+          );
+
+          continue;
+        }
+
+        throw new Error(
+          `Groq request failed ` +
+          `with HTTP ${response.status}: ${text}`,
+        );
+      }
+
+      let json: any;
+
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(
+          "Groq returned invalid JSON.",
+        );
+      }
+
+      const message =
+        json?.choices?.[0]?.message;
+
+      if (!message) {
+        throw new Error(
+          "Groq returned no message.",
+        );
+      }
+
+      return message;
+
+    } catch (error) {
+
+      console.error(
+        `Groq attempt ${attempt} failed:`,
+        error,
+      );
+
+      if (attempt >= 3) {
+        throw error;
+      }
+
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            1000 * attempt,
+          ),
+      );
+    }
+  }
+
+  throw new Error(
+    "Groq request failed.",
+  );
+}
+
+// ============================================================
 // ASK ONEVEST AI
 // ============================================================
 
@@ -206,95 +467,13 @@ export async function askOneVestAI(
   message: string,
 ): Promise<string> {
 
-  // ==========================================================
-  // SYSTEM INSTRUCTIONS
-  // ==========================================================
-
-  const systemInstruction = `
-You are OneVest AI, an intelligent personal finance assistant.
-
-Your role:
-
-- Help users understand investments.
-- Explain financial concepts clearly.
-- Analyze portfolio information when provided.
-- Explain diversification, risk and asset allocation.
-- Give personalized educational insights.
-- Use market intelligence when current market information is needed.
-- Never invent current stock prices or market data.
-- When the user asks for current/recent market intelligence about
-  a specific stock, use the get_market_intelligence tool.
-- Clearly explain when information comes from market intelligence.
-- Be concise and easy to understand.
-- Never guarantee investment returns.
-- Never claim certainty about future market movements.
-- Clearly distinguish educational information from professional
-  financial advice.
-
-IMPORTANT TOOL RULE:
-
-Use get_market_intelligence when the user asks for things such as:
-
-- current market intelligence
-- recent market information
-- current stock analysis
-- latest information about a stock
-- market outlook for a specific stock
-- analysis that requires current market data
-
-For general educational questions such as:
-
-"What is diversification?"
-
-"What is a mutual fund?"
-
-"What is a SIP?"
-
-"What is asset allocation?"
-
-you normally do NOT need the market intelligence tool.
-
-When using market intelligence, base your answer on the tool
-result rather than inventing data.
-
-Never guarantee profit or investment returns.
-`;
-
-  // ==========================================================
-  // FIRST GEMINI REQUEST
-  // ==========================================================
-
-  const contents: any[] = [
-    {
-      role: "user",
-
-      parts: [
-        {
-          text:
-            `${systemInstruction}\n\n` +
-            `User question:\n${message}`,
-        },
-      ],
-    },
-  ];
-
-  const configOptions = {
-    tools: [
-      {
-        functionDeclarations: [
-          marketIntelligenceTool,
-        ],
-      },
-    ],
-  };
-
   console.log("");
   console.log(
     "=================================",
   );
 
   console.log(
-    "ONEVEST AI REQUEST",
+    "ONEVEST GROQ AI REQUEST",
   );
 
   console.log(
@@ -303,57 +482,92 @@ Never guarantee profit or investment returns.
   );
 
   console.log(
+    "Model:",
+    GROQ_MODEL,
+  );
+
+  console.log(
     "=================================",
   );
 
-  const response =
-    await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-
-      contents,
-
-      config: configOptions,
-    });
-
   // ==========================================================
-  // CHECK FOR TOOL CALL
+  // FIRST GROQ REQUEST
   // ==========================================================
 
-  const functionCalls =
-    response.functionCalls ?? [];
+  const messages: GroqMessage[] = [
 
-  // ----------------------------------------------------------
-  // NO TOOL NEEDED
-  // ----------------------------------------------------------
+    {
+      role: "system",
+      content: SYSTEM_PROMPT,
+    },
 
-  if (functionCalls.length === 0) {
+    {
+      role: "user",
+      content: message,
+    },
+
+  ];
+
+  const firstResponse =
+    await callGroq(
+      messages,
+      true,
+    );
+
+  // ==========================================================
+  // CHECK FOR TOOL CALLS
+  // ==========================================================
+
+  const toolCalls =
+    firstResponse.tool_calls ?? [];
+
+  // ==========================================================
+  // NORMAL AI RESPONSE
+  // ==========================================================
+
+  if (
+    toolCalls.length === 0
+  ) {
+
     console.log(
-      "AI answered without using a tool.",
+      "Groq answered without market tool.",
     );
 
     return (
-      response.text ??
+      firstResponse.content ||
       "I couldn't generate a response right now."
     );
   }
 
   // ==========================================================
+  // ADD GROQ ASSISTANT MESSAGE
+  // ==========================================================
+
+  messages.push({
+    role: "assistant",
+    content:
+      firstResponse.content ?? null,
+    tool_calls:
+      toolCalls,
+  });
+
+  // ==========================================================
   // EXECUTE TOOL CALLS
   // ==========================================================
 
-  for (const functionCall of functionCalls) {
+  for (
+    const toolCall of toolCalls
+  ) {
 
     console.log("");
     console.log(
-      "AI requested tool:",
-      functionCall.name,
+      "Groq requested tool:",
+      toolCall.function.name,
     );
 
     console.log(
       "Arguments:",
-      JSON.stringify(
-        functionCall.args,
-      ),
+      toolCall.function.arguments,
     );
 
     // --------------------------------------------------------
@@ -361,14 +575,28 @@ Never guarantee profit or investment returns.
     // --------------------------------------------------------
 
     if (
-      functionCall.name ===
+      toolCall.function.name ===
       "get_market_intelligence"
     ) {
 
-      const args =
-        (functionCall.args ?? {}) as {
-          symbol?: string;
-        };
+      let args: {
+        symbol?: string;
+      };
+
+      try {
+
+        args =
+          JSON.parse(
+            toolCall.function.arguments ||
+            "{}",
+          );
+
+      } catch {
+
+        throw new Error(
+          "Groq returned invalid tool arguments.",
+        );
+      }
 
       const symbol =
         args.symbol;
@@ -377,13 +605,15 @@ Never guarantee profit or investment returns.
         !symbol ||
         typeof symbol !== "string"
       ) {
+
         throw new Error(
-          "Gemini requested market intelligence without a valid symbol.",
+          "Groq requested market intelligence " +
+          "without a valid symbol.",
         );
       }
 
       // ------------------------------------------------------
-      // EXECUTE THE ACTUAL TOOL
+      // CALL PREMIUM x402 MARKET INTELLIGENCE
       // ------------------------------------------------------
 
       const result =
@@ -393,7 +623,7 @@ Never guarantee profit or investment returns.
 
       console.log("");
       console.log(
-        "Tool result received.",
+        "Premium market intelligence received.",
       );
 
       console.log(
@@ -405,57 +635,47 @@ Never guarantee profit or investment returns.
       );
 
       // ------------------------------------------------------
-      // SEND TOOL RESULT BACK TO GEMINI
+      // RETURN TOOL RESULT TO GROQ
       // ------------------------------------------------------
 
-      contents.push(
-        response.candidates?.[0]?.content,
-      );
+      messages.push({
+        role: "tool",
 
-      contents.push({
-        role: "user",
+        tool_call_id:
+          toolCall.id,
 
-        parts: [
-          {
-            functionResponse: {
-              name:
-                functionCall.name,
-
-              response: {
-                result,
-              },
-
-              id:
-                functionCall.id,
-            },
-          },
-        ],
+        content:
+          JSON.stringify(
+            result,
+          ),
       });
-
-      // ------------------------------------------------------
-      // FINAL GEMINI RESPONSE
-      // ------------------------------------------------------
-
-      const finalResponse =
-        await ai.models.generateContent({
-          model:
-            "gemini-3.6-flash",
-
-          contents,
-
-          config:
-            configOptions,
-        });
-
-      return (
-        finalResponse.text ??
-        "I received the market intelligence but couldn't generate the final explanation."
-      );
     }
   }
 
+  // ==========================================================
+  // FINAL GROQ RESPONSE
+  // ==========================================================
+
+  const finalResponse =
+    await callGroq(
+      messages,
+      false,
+    );
+
+  console.log(
+    "Groq final response received.",
+  );
+
   return (
-    response.text ??
-    "I couldn't generate a response right now."
+    finalResponse.content ||
+    "I received the market intelligence but couldn't generate the final explanation."
   );
 }
+
+// ============================================================
+// EXPORTS
+// ============================================================
+
+export {
+  GROQ_MODEL,
+};

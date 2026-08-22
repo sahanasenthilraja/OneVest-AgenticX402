@@ -39,8 +39,9 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
   final Random random = Random();
 
-  final TextEditingController symbolController =
-      TextEditingController(text: "AAPL");
+  final TextEditingController symbolController = TextEditingController(
+    text: "AAPL",
+  );
 
   late Timer timer;
 
@@ -68,20 +69,17 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
   void initState() {
     super.initState();
 
-    timer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) {
-        if (!mounted) return;
+    timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
 
-        setState(() {
-          nifty += random.nextDouble() * 20 - 10;
-          sensex += random.nextDouble() * 30 - 15;
-          gold += random.nextDouble() * 8 - 4;
-          bitcoin += random.nextDouble() * 10000 - 5000;
-          ethereum += random.nextDouble() * 500 - 250;
-        });
-      },
-    );
+      setState(() {
+        nifty += random.nextDouble() * 20 - 10;
+        sensex += random.nextDouble() * 30 - 15;
+        gold += random.nextDouble() * 8 - 4;
+        bitcoin += random.nextDouble() * 10000 - 5000;
+        ethereum += random.nextDouble() * 500 - 250;
+      });
+    });
   }
 
   @override
@@ -95,10 +93,7 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
   // FONTS
   // ============================================================
 
-  TextStyle pixel(
-    double size, {
-    Color color = white,
-  }) {
+  TextStyle pixel(double size, {Color color = white}) {
     return GoogleFonts.pressStart2p(
       fontSize: size,
       color: color,
@@ -123,36 +118,30 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
   // ============================================================
 
   Future<void> getMarketIntelligence() async {
-    final symbol =
-        symbolController.text.trim().toUpperCase();
+    final symbol = symbolController.text.trim().toUpperCase();
 
     if (symbol.isEmpty) {
       setState(() {
-        errorMessage =
-            "Please enter a stock symbol.";
+        errorMessage = "Please enter a stock symbol.";
       });
       return;
     }
 
     setState(() {
       isLoading = true;
-      paymentStatus =
-          "Agent request initiated";
+      paymentStatus = "Agent request initiated";
       transactionId = null;
       marketData = null;
       errorMessage = null;
     });
 
     try {
-      await Future.delayed(
-        const Duration(milliseconds: 500),
-      );
+      await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
 
       setState(() {
-        paymentStatus =
-            "x402 payment required • 0.005 USDC";
+        paymentStatus = "x402 payment required • 0.005 USDC";
       });
 
       final uri = Uri.parse(
@@ -163,44 +152,29 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
       final response = await http.get(uri);
 
       if (response.statusCode != 200) {
-        throw Exception(
-          "Agent returned HTTP ${response.statusCode}",
-        );
+        throw Exception("Agent returned HTTP ${response.statusCode}");
       }
 
-      final json =
-          jsonDecode(response.body)
-              as Map<String, dynamic>;
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
 
       if (json["success"] != true) {
-        throw Exception(
-          json["error"] ??
-              "Market request failed",
-        );
+        throw Exception(json["error"] ?? "Market request failed");
       }
 
-      final payment =
-          json["payment"]
-              as Map<String, dynamic>?;
+      final payment = json["payment"] as Map<String, dynamic>?;
 
-      final data =
-          json["data"]
-              as Map<String, dynamic>?;
+      final data = json["data"] as Map<String, dynamic>?;
 
-      final market =
-          data?["market"]
-              as Map<String, dynamic>?;
+      final market = data?["market"] as Map<String, dynamic>?;
 
       if (!mounted) return;
 
       setState(() {
         isLoading = false;
 
-        paymentStatus =
-            "✓ x402 payment settled on Algorand TestNet";
+        paymentStatus = "✓ x402 payment settled on Algorand TestNet";
 
-        transactionId =
-            payment?["transaction"]?.toString();
+        transactionId = payment?["transaction"]?.toString();
 
         marketData = market;
       });
@@ -226,53 +200,34 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
       decoration: BoxDecoration(
         color: panel,
-        borderRadius:
-            BorderRadius.circular(22),
-        border: Border.all(
-          color: border,
-        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: border),
       ),
 
       child: Padding(
         padding: const EdgeInsets.all(20),
 
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
             // ==================================================
             // HEADER
             // ==================================================
-
             Row(
               children: [
                 Container(
                   width: 46,
                   height: 46,
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        teal.withValues(
-                      alpha: 0.10,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(
-                      13,
-                    ),
-                    border:
-                        Border.all(
-                      color:
-                          teal.withValues(
-                        alpha: 0.25,
-                      ),
-                    ),
+                  decoration: BoxDecoration(
+                    color: teal.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: teal.withValues(alpha: 0.25)),
                   ),
 
                   child: const Icon(
-                    Icons
-                        .candlestick_chart_rounded,
+                    Icons.candlestick_chart_rounded,
                     color: teal,
                     size: 23,
                   ),
@@ -282,26 +237,16 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
 
                     children: [
-                      Text(
-                        "LIVE MARKET",
-                        style: pixel(
-                          11,
-                          color: white,
-                        ),
-                      ),
+                      Text("LIVE MARKET", style: pixel(11, color: white)),
 
                       const SizedBox(height: 7),
 
                       Text(
                         "Real-time market overview",
-                        style: mono(
-                          9,
-                          color: muted,
-                        ),
+                        style: mono(9, color: muted),
                       ),
                     ],
                   ),
@@ -309,29 +254,15 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
                 // LIVE INDICATOR
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 7,
                   ),
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        green.withValues(
-                      alpha: 0.10,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(
-                      8,
-                    ),
-                    border:
-                        Border.all(
-                      color:
-                          green.withValues(
-                        alpha: 0.30,
-                      ),
-                    ),
+                  decoration: BoxDecoration(
+                    color: green.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: green.withValues(alpha: 0.30)),
                   ),
 
                   child: Row(
@@ -340,11 +271,9 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
                         width: 7,
                         height: 7,
 
-                        decoration:
-                            const BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: green,
-                          shape:
-                              BoxShape.circle,
+                          shape: BoxShape.circle,
                         ),
                       ),
 
@@ -352,12 +281,7 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
                       Text(
                         "LIVE",
-                        style: mono(
-                          8,
-                          color: green,
-                          weight:
-                              FontWeight.bold,
-                        ),
+                        style: mono(8, color: green, weight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -370,14 +294,7 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // MARKET SNAPSHOT
             // ==================================================
-
-            Text(
-              "MARKET SNAPSHOT",
-              style: pixel(
-                9,
-                color: teal,
-              ),
-            ),
+            Text("MARKET SNAPSHOT", style: pixel(9, color: teal)),
 
             const SizedBox(height: 14),
 
@@ -433,32 +350,22 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // DIVIDER
             // ==================================================
-
-            Container(
-              height: 1,
-              color: border,
-            ),
+            Container(height: 1, color: border),
 
             const SizedBox(height: 24),
 
             // ==================================================
             // AI MARKET INTELLIGENCE
             // ==================================================
-
             Row(
               children: [
                 Container(
                   width: 42,
                   height: 42,
 
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        tealDark,
-                    borderRadius:
-                        BorderRadius.circular(
-                      12,
-                    ),
+                  decoration: BoxDecoration(
+                    color: tealDark,
+                    borderRadius: BorderRadius.circular(12),
                   ),
 
                   child: const Icon(
@@ -472,26 +379,19 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
 
                     children: [
                       Text(
                         "AI MARKET INTELLIGENCE",
-                        style: pixel(
-                          9,
-                          color: white,
-                        ),
+                        style: pixel(9, color: white),
                       ),
 
                       const SizedBox(height: 7),
 
                       Text(
                         "Premium insights powered by x402",
-                        style: mono(
-                          9,
-                          color: muted,
-                        ),
+                        style: mono(9, color: muted),
                       ),
                     ],
                   ),
@@ -504,42 +404,26 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // SYMBOL INPUT
             // ==================================================
-
             Text(
               "STOCK SYMBOL",
-              style: mono(
-                8,
-                color: muted,
-                weight: FontWeight.bold,
-              ),
+              style: mono(8, color: muted, weight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
 
             TextField(
-              controller:
-                  symbolController,
+              controller: symbolController,
 
-              textCapitalization:
-                  TextCapitalization.characters,
+              textCapitalization: TextCapitalization.characters,
 
-              style: mono(
-                11,
-                color: white,
-                weight: FontWeight.bold,
-              ),
+              style: mono(11, color: white, weight: FontWeight.bold),
 
-              decoration:
-                  InputDecoration(
+              decoration: InputDecoration(
                 hintText: "AAPL",
 
-                hintStyle: mono(
-                  10,
-                  color: muted,
-                ),
+                hintStyle: mono(10, color: muted),
 
-                prefixIcon:
-                    const Icon(
+                prefixIcon: const Icon(
                   Icons.search_rounded,
                   color: teal,
                   size: 20,
@@ -547,50 +431,26 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
                 filled: true,
 
-                fillColor:
-                    background,
+                fillColor: background,
 
-                contentPadding:
-                    const EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 15,
                 ),
 
-                border:
-                    OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
-                  ),
-                  borderSide:
-                      const BorderSide(
-                    color: border,
-                  ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: border),
                 ),
 
-                enabledBorder:
-                    OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
-                  ),
-                  borderSide:
-                      const BorderSide(
-                    color: border,
-                  ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: border),
                 ),
 
-                focusedBorder:
-                    OutlineInputBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
-                  ),
-                  borderSide:
-                      const BorderSide(
-                    color: teal,
-                    width: 1.5,
-                  ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: teal, width: 1.5),
                 ),
               ),
             ),
@@ -600,43 +460,25 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // AI BUTTON
             // ==================================================
-
             SizedBox(
               width: double.infinity,
 
-              child:
-                  ElevatedButton.icon(
-                onPressed: isLoading
-                    ? null
-                    : getMarketIntelligence,
+              child: ElevatedButton.icon(
+                onPressed: isLoading ? null : getMarketIntelligence,
 
-                style:
-                    ElevatedButton.styleFrom(
-                  backgroundColor:
-                      teal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: teal,
 
-                  foregroundColor:
-                      background,
+                  foregroundColor: background,
 
-                  disabledBackgroundColor:
-                      teal.withValues(
-                    alpha: 0.45,
-                  ),
+                  disabledBackgroundColor: teal.withValues(alpha: 0.45),
 
-                  minimumSize:
-                      const Size(
-                    double.infinity,
-                    52,
-                  ),
+                  minimumSize: const Size(double.infinity, 52),
 
                   elevation: 0,
 
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      13,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
                   ),
                 ),
 
@@ -644,29 +486,17 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child:
-                            CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: background,
                         ),
                       )
-                    : const Icon(
-                        Icons
-                            .auto_awesome_rounded,
-                        size: 19,
-                      ),
+                    : const Icon(Icons.auto_awesome_rounded, size: 19),
 
                 label: Text(
-                  isLoading
-                      ? "PROCESSING..."
-                      : "GET AI INTELLIGENCE",
+                  isLoading ? "PROCESSING..." : "GET AI INTELLIGENCE",
 
-                  style: mono(
-                    10,
-                    color: background,
-                    weight:
-                        FontWeight.bold,
-                  ),
+                  style: mono(10, color: background, weight: FontWeight.bold),
                 ),
               ),
             ),
@@ -674,9 +504,7 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // PAYMENT STATUS
             // ==================================================
-
-            if (isLoading ||
-                paymentStatus.isNotEmpty) ...[
+            if (isLoading || paymentStatus.isNotEmpty) ...[
               const SizedBox(height: 16),
 
               _buildPaymentStatus(),
@@ -685,7 +513,6 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // TRANSACTION SUCCESS
             // ==================================================
-
             if (transactionId != null) ...[
               const SizedBox(height: 12),
 
@@ -695,7 +522,6 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // MARKET DATA
             // ==================================================
-
             if (marketData != null) ...[
               const SizedBox(height: 16),
 
@@ -705,7 +531,6 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
             // ==================================================
             // ERROR
             // ==================================================
-
             if (errorMessage != null) ...[
               const SizedBox(height: 12),
 
@@ -731,24 +556,18 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
     return Container(
       width: 175,
 
-      padding:
-          const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(15),
 
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: background,
 
-        borderRadius:
-            BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(15),
 
-        border: Border.all(
-          color: border,
-        ),
+        border: Border.all(color: border),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
@@ -757,35 +576,19 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
                 width: 32,
                 height: 32,
 
-                decoration:
-                    BoxDecoration(
-                  color:
-                      accent.withValues(
-                    alpha: 0.10,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    9,
-                  ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(9),
                 ),
 
-                child: Icon(
-                  icon,
-                  color: accent,
-                  size: 17,
-                ),
+                child: Icon(icon, color: accent, size: 17),
               ),
 
               const Spacer(),
 
               Text(
                 change,
-                style: mono(
-                  8,
-                  color: accent,
-                  weight:
-                      FontWeight.bold,
-                ),
+                style: mono(8, color: accent, weight: FontWeight.bold),
               ),
             ],
           ),
@@ -794,24 +597,14 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
           Text(
             name,
-            style: mono(
-              8,
-              color: muted,
-              weight:
-                  FontWeight.bold,
-            ),
+            style: mono(8, color: muted, weight: FontWeight.bold),
           ),
 
           const SizedBox(height: 7),
 
           Text(
             price,
-            style: mono(
-              11,
-              color: white,
-              weight:
-                  FontWeight.bold,
-            ),
+            style: mono(11, color: white, weight: FontWeight.bold),
           ),
         ],
       ),
@@ -826,85 +619,51 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
     return Container(
       width: double.infinity,
 
-      padding:
-          const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(15),
 
-      decoration:
-          BoxDecoration(
-        color:
-            tealDark.withValues(
-          alpha: 0.55,
-        ),
+      decoration: BoxDecoration(
+        color: tealDark.withValues(alpha: 0.55),
 
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
 
-        border: Border.all(
-          color:
-              teal.withValues(
-            alpha: 0.30,
-          ),
-        ),
+        border: Border.all(color: teal.withValues(alpha: 0.30)),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
             children: [
               const Icon(
-                Icons
-                    .account_balance_wallet_rounded,
+                Icons.account_balance_wallet_rounded,
                 color: teal,
                 size: 18,
               ),
 
               const SizedBox(width: 8),
 
-              Text(
-                "x402 PAYMENT",
-                style: pixel(
-                  8,
-                  color: teal,
-                ),
-              ),
+              Text("x402 PAYMENT", style: pixel(8, color: teal)),
             ],
           ),
 
           const SizedBox(height: 10),
 
-          Text(
-            paymentStatus,
-            style: mono(
-              9,
-              color: white,
-            ),
-          ),
+          Text(paymentStatus, style: mono(9, color: white)),
 
           if (isLoading) ...[
             const SizedBox(height: 10),
 
-            Text(
-              "Algorand TestNet • 0.005 USDC",
-              style: mono(
-                8,
-                color: muted,
-              ),
-            ),
+            Text("Algorand TestNet • 0.005 USDC", style: mono(8, color: muted)),
 
             const SizedBox(height: 10),
 
             ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10),
 
-              child:
-                  const LinearProgressIndicator(
+              child: const LinearProgressIndicator(
                 minHeight: 5,
-                backgroundColor:
-                    Color(0xFF263A56),
+                backgroundColor: Color(0xFF263A56),
                 color: teal,
               ),
             ),
@@ -922,86 +681,52 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
     return Container(
       width: double.infinity,
 
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
 
-      decoration:
-          BoxDecoration(
-        color:
-            green.withValues(
-          alpha: 0.06,
-        ),
+      decoration: BoxDecoration(
+        color: green.withValues(alpha: 0.06),
 
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
 
-        border: Border.all(
-          color:
-              green.withValues(
-            alpha: 0.30,
-          ),
-        ),
+        border: Border.all(color: green.withValues(alpha: 0.30)),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                color: green,
-                size: 20,
-              ),
+              const Icon(Icons.check_circle_rounded, color: green, size: 20),
 
               const SizedBox(width: 8),
 
-              Text(
-                "PAYMENT SUCCESSFUL",
-                style: pixel(
-                  8,
-                  color: green,
-                ),
-              ),
+              Text("PAYMENT SUCCESSFUL", style: pixel(8, color: green)),
             ],
           ),
 
           const SizedBox(height: 13),
 
-          _infoRow(
-            "AMOUNT",
-            "0.005 USDC",
-          ),
+          _infoRow("AMOUNT", "0.005 USDC"),
 
           const SizedBox(height: 7),
 
-          _infoRow(
-            "NETWORK",
-            "Algorand TestNet",
-          ),
+          _infoRow("NETWORK", "Algorand TestNet"),
 
           const SizedBox(height: 10),
 
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
 
-            decoration:
-                BoxDecoration(
+            decoration: BoxDecoration(
               color: background,
-              borderRadius:
-                  BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(9),
             ),
 
             child: Text(
               "TRANSACTION\n${transactionId ?? ""}",
-              style: mono(
-                8,
-                color: muted,
-              ),
+              style: mono(8, color: muted),
             ),
           ),
         ],
@@ -1015,157 +740,86 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
 
   Widget _buildMarketIntelligence() {
     final String symbol =
-        marketData!["symbol"]
-                ?.toString() ??
-            symbolController.text;
+        marketData!["symbol"]?.toString() ?? symbolController.text;
 
-    final String price =
-        marketData!["price"]
-                ?.toString() ??
-            "--";
+    final String price = marketData!["price"]?.toString() ?? "--";
 
-    final String change =
-        marketData!["changePercent"]
-                ?.toString() ??
-            "--";
+    final String change = marketData!["changePercent"]?.toString() ?? "--";
 
     final String previousClose =
-        marketData!["previousClose"]
-                ?.toString() ??
-            "--";
+        marketData!["previousClose"]?.toString() ?? "--";
 
-    final String volume =
-        marketData!["volume"]
-                ?.toString() ??
-            "--";
+    final String volume = marketData!["volume"]?.toString() ?? "--";
 
     return Container(
       width: double.infinity,
 
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
 
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: panelLight,
 
-        borderRadius:
-            BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(17),
 
-        border: Border.all(
-          color: teal.withValues(
-            alpha: 0.30,
-          ),
-        ),
+        border: Border.all(color: teal.withValues(alpha: 0.30)),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.insights_rounded,
-                color: teal,
-                size: 20,
-              ),
+              const Icon(Icons.insights_rounded, color: teal, size: 20),
 
               const SizedBox(width: 8),
 
-              Text(
-                "MARKET INTELLIGENCE",
-                style: pixel(
-                  8,
-                  color: teal,
-                ),
-              ),
+              Text("MARKET INTELLIGENCE", style: pixel(8, color: teal)),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          Text(
-            symbol,
-            style: pixel(
-              15,
-              color: white,
-            ),
-          ),
+          Text(symbol, style: pixel(15, color: white)),
 
           const SizedBox(height: 12),
 
           Text(
             "\$$price",
-            style: mono(
-              22,
-              color: white,
-              weight:
-                  FontWeight.bold,
-            ),
+            style: mono(22, color: white, weight: FontWeight.bold),
           ),
 
           const SizedBox(height: 7),
 
           Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 9,
-              vertical: 5,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
 
-            decoration:
-                BoxDecoration(
-              color:
-                  green.withValues(
-                alpha: 0.10,
-              ),
-              borderRadius:
-                  BorderRadius.circular(7),
+            decoration: BoxDecoration(
+              color: green.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(7),
             ),
 
             child: Text(
               "$change%",
-              style: mono(
-                9,
-                color: green,
-                weight:
-                    FontWeight.bold,
-              ),
+              style: mono(9, color: green, weight: FontWeight.bold),
             ),
           ),
 
           const SizedBox(height: 18),
 
-          Container(
-            height: 1,
-            color: border,
-          ),
+          Container(height: 1, color: border),
 
           const SizedBox(height: 15),
 
-          _infoRow(
-            "PREVIOUS CLOSE",
-            "\$$previousClose",
-          ),
+          _infoRow("PREVIOUS CLOSE", "\$$previousClose"),
 
           const SizedBox(height: 10),
 
-          _infoRow(
-            "VOLUME",
-            volume,
-          ),
+          _infoRow("VOLUME", volume),
 
           const SizedBox(height: 15),
 
-          Text(
-            "SOURCE: ALPHA VANTAGE",
-            style: mono(
-              7,
-              color: muted,
-            ),
-          ),
+          Text("SOURCE: ALPHA VANTAGE", style: mono(7, color: muted)),
         ],
       ),
     );
@@ -1175,36 +829,21 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
   // INFO ROW
   // ============================================================
 
-  Widget _infoRow(
-    String label,
-    String value,
-  ) {
+  Widget _infoRow(String label, String value) {
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
       children: [
         Text(
           label,
-          style: mono(
-            8,
-            color: muted,
-            weight:
-                FontWeight.bold,
-          ),
+          style: mono(8, color: muted, weight: FontWeight.bold),
         ),
 
         Flexible(
           child: Text(
             value,
-            textAlign:
-                TextAlign.right,
-            style: mono(
-              9,
-              color: white,
-              weight:
-                  FontWeight.bold,
-            ),
+            textAlign: TextAlign.right,
+            style: mono(9, color: white, weight: FontWeight.bold),
           ),
         ),
       ],
@@ -1219,48 +858,26 @@ class _LiveMarketWidgetState extends State<LiveMarketWidget> {
     return Container(
       width: double.infinity,
 
-      padding:
-          const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(13),
 
-      decoration:
-          BoxDecoration(
-        color:
-            red.withValues(
-          alpha: 0.08,
-        ),
+      decoration: BoxDecoration(
+        color: red.withValues(alpha: 0.08),
 
-        borderRadius:
-            BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12),
 
-        border: Border.all(
-          color:
-              red.withValues(
-            alpha: 0.30,
-          ),
-        ),
+        border: Border.all(color: red.withValues(alpha: 0.30)),
       ),
 
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: red,
-            size: 19,
-          ),
+          const Icon(Icons.error_outline_rounded, color: red, size: 19),
 
           const SizedBox(width: 9),
 
           Expanded(
-            child: Text(
-              errorMessage!,
-              style: mono(
-                8,
-                color: red,
-              ),
-            ),
+            child: Text(errorMessage!, style: mono(8, color: red)),
           ),
         ],
       ),
