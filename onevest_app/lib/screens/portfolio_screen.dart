@@ -254,9 +254,12 @@ double? _currentPrice(
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const AppSidebar(
-                  current: SidebarItem.portfolio,
-                ),
+                AppSidebar(
+  selected: SidebarItem.portfolio,
+  onSelected: (item) {
+    
+  },
+),
 
                 Expanded(
                   child: _buildPortfolioContent(),

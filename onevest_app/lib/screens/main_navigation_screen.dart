@@ -4,7 +4,7 @@ import 'dashboard_screen.dart';
 import 'portfolio_screen.dart';
 import 'ai_agent_screen.dart';
 import 'ai_screen.dart';
-import 'profile_screen.dart';
+import 'user_profile_screen.dart';
 import '../widgets/mobile_navigation_bar.dart';
 
 class MainNavigationScreen extends StatefulWidget {

@@ -25,12 +25,10 @@ class InvestmentDetailsScreen extends StatefulWidget {
       _InvestmentDetailsScreenState();
 }
 
-class _InvestmentDetailsScreenState
-    extends State<InvestmentDetailsScreen> {
+class _InvestmentDetailsScreenState extends State<InvestmentDetailsScreen> {
   String get investmentId => widget.investmentId;
 
-  Map<String, dynamic> get investmentData =>
-      widget.investmentData;
+  Map<String, dynamic> get investmentData => widget.investmentData;
 
   double? liveCurrentPrice;
   double? liveChangePercent;
@@ -67,9 +65,7 @@ class _InvestmentDetailsScreenState
             .toUpperCase();
 
     if (symbol.isEmpty) {
-      debugPrint(
-        "Investment Details: no market symbol found.",
-      );
+      debugPrint("Investment Details: no market symbol found.");
       return;
     }
 
@@ -87,26 +83,18 @@ class _InvestmentDetailsScreenState
         "?symbol=${Uri.encodeQueryComponent(symbol)}",
       );
 
-      debugPrint(
-        "Investment Details: fetching live price for $symbol",
-      );
+      debugPrint("Investment Details: fetching live price for $symbol");
 
-      final http.Response response =
-          await http.get(uri);
+      final http.Response response = await http.get(uri);
 
-      debugPrint(
-        "Investment Details: API status ${response.statusCode}",
-      );
+      debugPrint("Investment Details: API status ${response.statusCode}");
 
       if (response.statusCode != 200) {
-        debugPrint(
-          "Investment Details: API error ${response.body}",
-        );
+        debugPrint("Investment Details: API error ${response.body}");
         return;
       }
 
-      final dynamic decoded =
-          jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(response.body);
 
       double? price;
       double? changePercent;
@@ -115,11 +103,9 @@ class _InvestmentDetailsScreenState
         final dynamic market = decoded["market"];
         final dynamic data = decoded["data"];
 
-        final dynamic directPrice =
-            decoded["price"];
+        final dynamic directPrice = decoded["price"];
         final dynamic directChange =
-            decoded["changePercent"] ??
-                decoded["change"];
+            decoded["changePercent"] ?? decoded["change"];
 
         if (directPrice is num) {
           price = directPrice.toDouble();
@@ -130,11 +116,9 @@ class _InvestmentDetailsScreenState
         }
 
         if (market is Map) {
-          final dynamic marketPrice =
-              market["price"];
+          final dynamic marketPrice = market["price"];
           final dynamic marketChange =
-              market["changePercent"] ??
-                  market["change"];
+              market["changePercent"] ?? market["change"];
 
           if (marketPrice is num) {
             price = marketPrice.toDouble();
@@ -146,11 +130,8 @@ class _InvestmentDetailsScreenState
         }
 
         if (data is Map) {
-          final dynamic dataPrice =
-              data["price"];
-          final dynamic dataChange =
-              data["changePercent"] ??
-                  data["change"];
+          final dynamic dataPrice = data["price"];
+          final dynamic dataChange = data["changePercent"] ?? data["change"];
 
           if (dataPrice is num) {
             price = dataPrice.toDouble();
@@ -170,18 +151,12 @@ class _InvestmentDetailsScreenState
           liveChangePercent = changePercent;
         });
 
-        debugPrint(
-          "Investment Details: $symbol live price = $price",
-        );
+        debugPrint("Investment Details: $symbol live price = $price");
       } else {
-        debugPrint(
-          "Investment Details: no valid price in API response.",
-        );
+        debugPrint("Investment Details: no valid price in API response.");
       }
     } catch (e) {
-      debugPrint(
-        "Investment Details: market API error: $e",
-      );
+      debugPrint("Investment Details: market API error: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -229,18 +204,12 @@ class _InvestmentDetailsScreenState
 
         title: Text(
           "Delete Investment",
-          style: GoogleFonts.pressStart2p(
-            color: Colors.white,
-            fontSize: 12,
-          ),
+          style: GoogleFonts.pressStart2p(color: Colors.white, fontSize: 12),
         ),
 
         content: Text(
           "Are you sure you want to delete this investment?",
-          style: GoogleFonts.spaceMono(
-            color: secondaryText,
-            fontSize: 13,
-          ),
+          style: GoogleFonts.spaceMono(color: secondaryText, fontSize: 13),
         ),
 
         actions: [
@@ -248,9 +217,7 @@ class _InvestmentDetailsScreenState
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               "Cancel",
-              style: GoogleFonts.spaceMono(
-                color: secondaryText,
-              ),
+              style: GoogleFonts.spaceMono(color: secondaryText),
             ),
           ),
 
@@ -264,9 +231,7 @@ class _InvestmentDetailsScreenState
 
             child: Text(
               "Delete",
-              style: GoogleFonts.spaceMono(
-                fontWeight: FontWeight.bold,
-              ),
+              style: GoogleFonts.spaceMono(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -281,11 +246,9 @@ class _InvestmentDetailsScreenState
         .delete();
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Investment Deleted"),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Investment Deleted")));
 
       Navigator.pop(context);
     }
@@ -314,9 +277,7 @@ class _InvestmentDetailsScreenState
 
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
-                side: const BorderSide(
-                  color: border,
-                ),
+                side: const BorderSide(color: border),
               ),
 
               title: Text(
@@ -342,19 +303,11 @@ class _InvestmentDetailsScreenState
                         fontSize: 13,
                       ),
 
-                      decoration: _dialogInputDecoration(
-                        "Transaction Type",
-                      ),
+                      decoration: _dialogInputDecoration("Transaction Type"),
 
                       items: const [
-                        DropdownMenuItem(
-                          value: "BUY",
-                          child: Text("BUY"),
-                        ),
-                        DropdownMenuItem(
-                          value: "SELL",
-                          child: Text("SELL"),
-                        ),
+                        DropdownMenuItem(value: "BUY", child: Text("BUY")),
+                        DropdownMenuItem(value: "SELL", child: Text("SELL")),
                         DropdownMenuItem(
                           value: "DIVIDEND",
                           child: Text("DIVIDEND"),
@@ -376,14 +329,11 @@ class _InvestmentDetailsScreenState
                     TextField(
                       controller: amountController,
 
-                      keyboardType:
-                          const TextInputType.numberWithOptions(
+                      keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
 
-                      style: GoogleFonts.spaceMono(
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.spaceMono(color: Colors.white),
 
                       cursorColor: teal,
 
@@ -399,20 +349,15 @@ class _InvestmentDetailsScreenState
                     TextField(
                       controller: unitsController,
 
-                      keyboardType:
-                          const TextInputType.numberWithOptions(
+                      keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
 
-                      style: GoogleFonts.spaceMono(
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.spaceMono(color: Colors.white),
 
                       cursorColor: teal,
 
-                      decoration: _dialogInputDecoration(
-                        "Units",
-                      ),
+                      decoration: _dialogInputDecoration("Units"),
                     ),
 
                     const SizedBox(height: 15),
@@ -421,14 +366,11 @@ class _InvestmentDetailsScreenState
                     TextField(
                       controller: priceController,
 
-                      keyboardType:
-                          const TextInputType.numberWithOptions(
+                      keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
 
-                      style: GoogleFonts.spaceMono(
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.spaceMono(color: Colors.white),
 
                       cursorColor: teal,
 
@@ -468,8 +410,7 @@ class _InvestmentDetailsScreenState
                       ),
 
                       onTap: () async {
-                        final DateTime? picked =
-                            await showDatePicker(
+                        final DateTime? picked = await showDatePicker(
                           context: context,
                           initialDate: selectedDate,
                           firstDate: DateTime(2000),
@@ -490,10 +431,7 @@ class _InvestmentDetailsScreenState
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(
-                      dialogContext,
-                      false,
-                    );
+                    Navigator.pop(dialogContext, false);
                   },
 
                   child: Text(
@@ -512,18 +450,15 @@ class _InvestmentDetailsScreenState
                   ),
 
                   onPressed: () async {
-                    final double? amount =
-                        double.tryParse(
+                    final double? amount = double.tryParse(
                       amountController.text.trim(),
                     );
 
-                    final double? units =
-                        double.tryParse(
+                    final double? units = double.tryParse(
                       unitsController.text.trim(),
                     );
 
-                    final double? price =
-                        double.tryParse(
+                    final double? price = double.tryParse(
                       priceController.text.trim(),
                     );
 
@@ -533,8 +468,7 @@ class _InvestmentDetailsScreenState
                         units < 0 ||
                         price == null ||
                         price < 0) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
                             "Please enter valid transaction details.",
@@ -550,30 +484,22 @@ class _InvestmentDetailsScreenState
                         .doc(investmentId)
                         .collection("transactions")
                         .add({
-                      "type": transactionType,
-                      "amount": amount,
-                      "units": units,
-                      "price": price,
-                      "date": Timestamp.fromDate(
-                        selectedDate,
-                      ),
-                      "createdAt":
-                          FieldValue.serverTimestamp(),
-                    });
+                          "type": transactionType,
+                          "amount": amount,
+                          "units": units,
+                          "price": price,
+                          "date": Timestamp.fromDate(selectedDate),
+                          "createdAt": FieldValue.serverTimestamp(),
+                        });
 
                     if (dialogContext.mounted) {
-                      Navigator.pop(
-                        dialogContext,
-                        true,
-                      );
+                      Navigator.pop(dialogContext, true);
                     }
                   },
 
                   child: Text(
                     "ADD",
-                    style: GoogleFonts.spaceMono(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: GoogleFonts.spaceMono(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -584,11 +510,9 @@ class _InvestmentDetailsScreenState
     );
 
     if (added == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Transaction Added"),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Transaction Added")));
     }
   }
 
@@ -596,23 +520,15 @@ class _InvestmentDetailsScreenState
   // DIALOG INPUT DECORATION
   // ============================================================
 
-  InputDecoration _dialogInputDecoration(
-    String label, {
-    String? prefixText,
-  }) {
+  InputDecoration _dialogInputDecoration(String label, {String? prefixText}) {
     return InputDecoration(
       labelText: label,
 
-      labelStyle: GoogleFonts.spaceMono(
-        color: secondaryText,
-        fontSize: 12,
-      ),
+      labelStyle: GoogleFonts.spaceMono(color: secondaryText, fontSize: 12),
 
       prefixText: prefixText,
 
-      prefixStyle: GoogleFonts.spaceMono(
-        color: Colors.white,
-      ),
+      prefixStyle: GoogleFonts.spaceMono(color: Colors.white),
 
       filled: true,
 
@@ -620,23 +536,17 @@ class _InvestmentDetailsScreenState
 
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: border,
-        ),
+        borderSide: const BorderSide(color: border),
       ),
 
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: border,
-        ),
+        borderSide: const BorderSide(color: border),
       ),
 
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: teal,
-        ),
+        borderSide: const BorderSide(color: teal),
       ),
     );
   }
@@ -651,23 +561,15 @@ class _InvestmentDetailsScreenState
           .collection("investments")
           .doc(investmentId)
           .collection("transactions")
-          .orderBy(
-            "date",
-            descending: true,
-          )
+          .orderBy("date", descending: true)
           .snapshots(),
 
       builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.all(25),
 
-            child: Center(
-              child: CircularProgressIndicator(
-                color: teal,
-              ),
-            ),
+            child: Center(child: CircularProgressIndicator(color: teal)),
           );
         }
 
@@ -679,8 +581,7 @@ class _InvestmentDetailsScreenState
           );
         }
 
-        final transactions =
-            snapshot.data?.docs ?? [];
+        final transactions = snapshot.data?.docs ?? [];
 
         if (transactions.isEmpty) {
           return _emptyStateCard(
@@ -692,26 +593,19 @@ class _InvestmentDetailsScreenState
 
         return Column(
           children: transactions.map((doc) {
-            final data =
-                doc.data() as Map<String, dynamic>;
+            final data = doc.data() as Map<String, dynamic>;
 
-            final String type =
-                data["type"] ?? "BUY";
+            final String type = data["type"] ?? "BUY";
 
-            final double amount =
-                getDouble(data["amount"]);
+            final double amount = getDouble(data["amount"]);
 
-            final double units =
-                getDouble(data["units"]);
+            final double units = getDouble(data["units"]);
 
-            final double price =
-                getDouble(data["price"]);
+            final double price = getDouble(data["price"]);
 
-            final Timestamp? timestamp =
-                data["date"] as Timestamp?;
+            final Timestamp? timestamp = data["date"] as Timestamp?;
 
-            final DateTime? date =
-                timestamp?.toDate();
+            final DateTime? date = timestamp?.toDate();
 
             Color color;
             IconData icon;
@@ -724,32 +618,25 @@ class _InvestmentDetailsScreenState
               icon = Icons.arrow_upward_rounded;
             } else {
               color = Colors.amber;
-              icon =
-                  Icons.account_balance_wallet_rounded;
+              icon = Icons.account_balance_wallet_rounded;
             }
 
             return MouseRegion(
               cursor: SystemMouseCursors.click,
 
               child: AnimatedContainer(
-                duration:
-                    const Duration(milliseconds: 150),
+                duration: const Duration(milliseconds: 150),
 
-                margin:
-                    const EdgeInsets.only(bottom: 10),
+                margin: const EdgeInsets.only(bottom: 10),
 
-                padding:
-                    const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
 
                 decoration: BoxDecoration(
                   color: panel,
 
-                  borderRadius:
-                      BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16),
 
-                  border: Border.all(
-                    color: border,
-                  ),
+                  border: Border.all(color: border),
                 ),
 
                 child: Row(
@@ -759,36 +646,26 @@ class _InvestmentDetailsScreenState
                       height: 44,
 
                       decoration: BoxDecoration(
-                        color:
-                            color.withValues(
-                          alpha: 0.12,
-                        ),
+                        color: color.withValues(alpha: 0.12),
 
-                        borderRadius:
-                            BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
 
                       alignment: Alignment.center,
 
-                      child: Icon(
-                        icon,
-                        color: color,
-                        size: 21,
-                      ),
+                      child: Icon(icon, color: color, size: 21),
                     ),
 
                     const SizedBox(width: 14),
 
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
 
                         children: [
                           Text(
                             type,
-                            style:
-                                GoogleFonts.pressStart2p(
+                            style: GoogleFonts.pressStart2p(
                               color: color,
                               fontSize: 9,
                             ),
@@ -800,10 +677,9 @@ class _InvestmentDetailsScreenState
                             date == null
                                 ? "Date unavailable"
                                 : "${date.day}/"
-                                  "${date.month}/"
-                                  "${date.year}",
-                            style:
-                                GoogleFonts.spaceMono(
+                                      "${date.month}/"
+                                      "${date.year}",
+                            style: GoogleFonts.spaceMono(
                               color: secondaryText,
                               fontSize: 11,
                             ),
@@ -817,8 +693,7 @@ class _InvestmentDetailsScreenState
                             "  •  ₹"
                             "${price.toStringAsFixed(2)} / unit",
 
-                            style:
-                                GoogleFonts.spaceMono(
+                            style: GoogleFonts.spaceMono(
                               color: mutedText,
                               fontSize: 10,
                             ),
@@ -832,8 +707,7 @@ class _InvestmentDetailsScreenState
                     Text(
                       "₹${amount.toStringAsFixed(2)}",
 
-                      style:
-                          GoogleFonts.spaceMono(
+                      style: GoogleFonts.spaceMono(
                         color: Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -861,29 +735,19 @@ class _InvestmentDetailsScreenState
     return Container(
       width: double.infinity,
 
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 35,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 35),
 
       decoration: BoxDecoration(
         color: panel,
 
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
 
-        border: Border.all(
-          color: border,
-        ),
+        border: Border.all(color: border),
       ),
 
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: mutedText,
-            size: 42,
-          ),
+          Icon(icon, color: mutedText, size: 42),
 
           const SizedBox(height: 14),
 
@@ -902,10 +766,7 @@ class _InvestmentDetailsScreenState
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: GoogleFonts.spaceMono(
-              color: mutedText,
-              fontSize: 13,
-            ),
+            style: GoogleFonts.spaceMono(color: mutedText, fontSize: 13),
           ),
         ],
       ),
@@ -917,49 +778,33 @@ class _InvestmentDetailsScreenState
   // ============================================================
 
   Widget investmentSummaryCard() {
-    final double quantity =
-        getDouble(investmentData["quantity"]);
+    final double quantity = getDouble(investmentData["quantity"]);
 
-    final double buyPrice =
-        getDouble(investmentData["buyPrice"]);
+    final double buyPrice = getDouble(investmentData["buyPrice"]);
 
-    final double storedCurrentPrice =
-        getDouble(
-      investmentData["currentPrice"],
-    );
+    final double storedCurrentPrice = getDouble(investmentData["currentPrice"]);
 
     final double currentPrice =
         liveCurrentPrice ??
-        (storedCurrentPrice > 0
-            ? storedCurrentPrice
-            : buyPrice);
+        (storedCurrentPrice > 0 ? storedCurrentPrice : buyPrice);
 
-    final double currentValue =
-        currentPrice * quantity;
+    final double currentValue = currentPrice * quantity;
 
-    final double invested =
-        quantity * buyPrice;
+    final double invested = quantity * buyPrice;
 
-    final double profit =
-        currentValue - invested;
+    final double profit = currentValue - invested;
 
-    final double returnPercentage =
-        invested == 0
-            ? 0
-            : (profit / invested) * 100;
+    final double returnPercentage = invested == 0
+        ? 0
+        : (profit / invested) * 100;
 
-    final bool isProfit =
-        profit >= 0;
+    final bool isProfit = profit >= 0;
 
     final String investmentName =
-        investmentData["investmentName"]
-                ?.toString() ??
-            "Investment";
+        investmentData["investmentName"]?.toString() ?? "Investment";
 
     final String investmentType =
-        investmentData["investmentType"]
-                ?.toString() ??
-            "";
+        investmentData["investmentType"]?.toString() ?? "";
 
     return Container(
       width: double.infinity,
@@ -969,26 +814,20 @@ class _InvestmentDetailsScreenState
       decoration: BoxDecoration(
         color: panel,
 
-        borderRadius:
-            BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(22),
 
-        border: Border.all(
-          color: border,
-        ),
+        border: Border.all(color: border),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           // --------------------------------------------------------
           // TOP IDENTITY
           // --------------------------------------------------------
-
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
               Container(
@@ -996,11 +835,9 @@ class _InvestmentDetailsScreenState
                 height: 54,
 
                 decoration: BoxDecoration(
-                  color:
-                      teal.withValues(alpha: 0.12),
+                  color: teal.withValues(alpha: 0.12),
 
-                  borderRadius:
-                      BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(15),
                 ),
 
                 alignment: Alignment.center,
@@ -1016,15 +853,13 @@ class _InvestmentDetailsScreenState
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
                     Text(
                       investmentName,
 
-                      style:
-                          GoogleFonts.pressStart2p(
+                      style: GoogleFonts.pressStart2p(
                         color: Colors.white,
                         fontSize: 19,
                       ),
@@ -1033,32 +868,24 @@ class _InvestmentDetailsScreenState
                     const SizedBox(height: 10),
 
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 9,
                         vertical: 5,
                       ),
 
                       decoration: BoxDecoration(
-                        color:
-                            teal.withValues(
-                          alpha: 0.10,
-                        ),
+                        color: teal.withValues(alpha: 0.10),
 
-                        borderRadius:
-                            BorderRadius.circular(7),
+                        borderRadius: BorderRadius.circular(7),
                       ),
 
                       child: Text(
-                        investmentType
-                            .toUpperCase(),
+                        investmentType.toUpperCase(),
 
-                        style:
-                            GoogleFonts.spaceMono(
+                        style: GoogleFonts.spaceMono(
                           color: teal,
                           fontSize: 12,
-                          fontWeight:
-                              FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -1073,7 +900,6 @@ class _InvestmentDetailsScreenState
           // --------------------------------------------------------
           // CURRENT VALUE
           // --------------------------------------------------------
-
           Text(
             "CURRENT VALUE",
             style: GoogleFonts.spaceMono(
@@ -1086,16 +912,14 @@ class _InvestmentDetailsScreenState
           const SizedBox(height: 7),
 
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.end,
 
             children: [
               Expanded(
                 child: Text(
                   "₹${currentValue.toStringAsFixed(2)}",
 
-                  style:
-                      GoogleFonts.spaceMono(
+                  style: GoogleFonts.spaceMono(
                     color: Colors.white,
                     fontSize: 42,
                     fontWeight: FontWeight.bold,
@@ -1104,36 +928,27 @@ class _InvestmentDetailsScreenState
               ),
 
               Container(
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 7,
                 ),
 
                 decoration: BoxDecoration(
-                  color: (isProfit
-                          ? profitColor
-                          : lossColor)
-                      .withValues(
+                  color: (isProfit ? profitColor : lossColor).withValues(
                     alpha: 0.12,
                   ),
 
-                  borderRadius:
-                      BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(9),
                 ),
 
                 child: Text(
                   "${isProfit ? "+" : ""}"
                   "${returnPercentage.toStringAsFixed(2)}%",
 
-                  style:
-                      GoogleFonts.spaceMono(
-                    color: isProfit
-                        ? profitColor
-                        : lossColor,
+                  style: GoogleFonts.spaceMono(
+                    color: isProfit ? profitColor : lossColor,
                     fontSize: 15,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -1142,22 +957,16 @@ class _InvestmentDetailsScreenState
 
           const SizedBox(height: 25),
 
-          Container(
-            height: 1,
-            color: border,
-          ),
+          Container(height: 1, color: border),
 
           const SizedBox(height: 20),
 
           // --------------------------------------------------------
           // KEY METRICS
           // --------------------------------------------------------
-
           LayoutBuilder(
-            builder:
-                (context, constraints) {
-              final bool compact =
-                  constraints.maxWidth < 550;
+            builder: (context, constraints) {
+              final bool compact = constraints.maxWidth < 550;
 
               if (compact) {
                 return Column(
@@ -1175,8 +984,7 @@ class _InvestmentDetailsScreenState
                         Expanded(
                           child: _metricCard(
                             "QUANTITY",
-                            quantity
-                                .toStringAsFixed(0),
+                            quantity.toStringAsFixed(0),
                             Icons.layers_outlined,
                           ),
                         ),
@@ -1189,16 +997,12 @@ class _InvestmentDetailsScreenState
                       children: [
                         Expanded(
                           child: _metricCard(
-                            isProfit
-                                ? "PROFIT"
-                                : "LOSS",
+                            isProfit ? "PROFIT" : "LOSS",
                             "${isProfit ? "+" : "-"}₹${profit.abs().toStringAsFixed(2)}",
                             isProfit
                                 ? Icons.trending_up_rounded
                                 : Icons.trending_down_rounded,
-                            valueColor: isProfit
-                                ? profitColor
-                                : lossColor,
+                            valueColor: isProfit ? profitColor : lossColor,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1207,9 +1011,7 @@ class _InvestmentDetailsScreenState
                             "RETURN",
                             "${isProfit ? "+" : ""}${returnPercentage.toStringAsFixed(2)}%",
                             Icons.percent_rounded,
-                            valueColor: isProfit
-                                ? profitColor
-                                : lossColor,
+                            valueColor: isProfit ? profitColor : lossColor,
                           ),
                         ),
                       ],
@@ -1242,16 +1044,12 @@ class _InvestmentDetailsScreenState
 
                   Expanded(
                     child: _metricCard(
-                      isProfit
-                          ? "PROFIT"
-                          : "LOSS",
+                      isProfit ? "PROFIT" : "LOSS",
                       "${isProfit ? "+" : "-"}₹${profit.abs().toStringAsFixed(2)}",
                       isProfit
                           ? Icons.trending_up_rounded
                           : Icons.trending_down_rounded,
-                      valueColor: isProfit
-                          ? profitColor
-                          : lossColor,
+                      valueColor: isProfit ? profitColor : lossColor,
                     ),
                   ),
 
@@ -1262,9 +1060,7 @@ class _InvestmentDetailsScreenState
                       "RETURN",
                       "${isProfit ? "+" : ""}${returnPercentage.toStringAsFixed(2)}%",
                       Icons.percent_rounded,
-                      valueColor: isProfit
-                          ? profitColor
-                          : lossColor,
+                      valueColor: isProfit ? profitColor : lossColor,
                     ),
                   ),
                 ],
@@ -1287,30 +1083,21 @@ class _InvestmentDetailsScreenState
     Color valueColor = Colors.white,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
 
       decoration: BoxDecoration(
         color: panelLight,
 
-        borderRadius:
-            BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(13),
 
-        border: Border.all(
-          color: border,
-        ),
+        border: Border.all(color: border),
       ),
 
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          Icon(
-            icon,
-            color: teal,
-            size: 22,
-          ),
+          Icon(icon, color: teal, size: 22),
 
           const SizedBox(height: 10),
 
@@ -1343,26 +1130,16 @@ class _InvestmentDetailsScreenState
   // INFORMATION ROW
   // ============================================================
 
-  Widget informationCard(
-    String title,
-    String value,
-    IconData icon,
-  ) {
+  Widget informationCard(String title, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
 
       decoration: BoxDecoration(
         color: panel,
 
-        borderRadius:
-            BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(15),
 
-        border: Border.all(
-          color: border,
-        ),
+        border: Border.all(color: border),
       ),
 
       child: Row(
@@ -1372,28 +1149,21 @@ class _InvestmentDetailsScreenState
             height: 46,
 
             decoration: BoxDecoration(
-              color:
-                  teal.withValues(alpha: 0.10),
+              color: teal.withValues(alpha: 0.10),
 
-              borderRadius:
-                  BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10),
             ),
 
             alignment: Alignment.center,
 
-            child: Icon(
-              icon,
-              color: teal,
-              size: 23,
-            ),
+            child: Icon(icon, color: teal, size: 23),
           ),
 
           const SizedBox(width: 12),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
 
               children: [
                 Text(
@@ -1409,14 +1179,11 @@ class _InvestmentDetailsScreenState
 
                 Text(
                   value,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      GoogleFonts.spaceMono(
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.spaceMono(
                     color: Colors.white,
                     fontSize: 17,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -1447,72 +1214,47 @@ class _InvestmentDetailsScreenState
             ? ElevatedButton.icon(
                 onPressed: onPressed,
 
-                style:
-                    ElevatedButton.styleFrom(
+                style: ElevatedButton.styleFrom(
                   backgroundColor: teal,
-                  foregroundColor:
-                      const Color(0xFF04140F),
+                  foregroundColor: const Color(0xFF04140F),
 
                   elevation: 0,
 
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      13,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
                   ),
                 ),
 
-                icon: Icon(
-                  icon,
-                  size: 19,
-                ),
+                icon: Icon(icon, size: 19),
 
                 label: Text(
                   label,
-                  style:
-                      GoogleFonts.spaceMono(
+                  style: GoogleFonts.spaceMono(
                     fontSize: 13,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               )
             : OutlinedButton.icon(
                 onPressed: onPressed,
 
-                style:
-                    OutlinedButton.styleFrom(
-                  foregroundColor:
-                      lossColor,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: lossColor,
 
-                  side:
-                      const BorderSide(
-                    color: lossColor,
-                  ),
+                  side: const BorderSide(color: lossColor),
 
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      13,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(13),
                   ),
                 ),
 
-                icon: Icon(
-                  icon,
-                  size: 19,
-                ),
+                icon: Icon(icon, size: 19),
 
                 label: Text(
                   label,
-                  style:
-                      GoogleFonts.spaceMono(
+                  style: GoogleFonts.spaceMono(
                     fontSize: 13,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -1535,10 +1277,7 @@ class _InvestmentDetailsScreenState
         scrolledUnderElevation: 0,
 
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
 
           onPressed: () {
             Navigator.pop(context);
@@ -1547,36 +1286,29 @@ class _InvestmentDetailsScreenState
 
         title: Text(
           "Investment Details",
-          style: GoogleFonts.pressStart2p(
-            color: Colors.white,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.pressStart2p(color: Colors.white, fontSize: 16),
         ),
       ),
 
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final bool isDesktop =
-              constraints.maxWidth >= 900;
-final Widget content =
-    _buildContent(
-  context: context,
-  isDesktop: isDesktop,
-);
+          final bool isDesktop = constraints.maxWidth >= 900;
+          final Widget content = _buildContent(
+            context: context,
+            isDesktop: isDesktop,
+          );
 
           if (isDesktop) {
             return Row(
-              crossAxisAlignment:
-                  CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
 
               children: [
-                const AppSidebar(
-                  current: SidebarItem.portfolio,
+                AppSidebar(
+                  selected: SidebarItem.portfolio,
+                  onSelected: (item) {},
                 ),
 
-                Expanded(
-                  child: content,
-                ),
+                Expanded(child: content),
               ],
             );
           }
@@ -1592,9 +1324,9 @@ final Widget content =
   // ============================================================
 
   Widget _buildContent({
-  required BuildContext context,
-  required bool isDesktop,
-}) {
+    required BuildContext context,
+    required bool isDesktop,
+  }) {
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(
         horizontal: isDesktop ? 28 : 16,
@@ -1603,28 +1335,22 @@ final Widget content =
 
       child: Center(
         child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(
-            maxWidth: 1450,
-          ),
+          constraints: const BoxConstraints(maxWidth: 1450),
 
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
               // --------------------------------------------------
               // TOP LABEL
               // --------------------------------------------------
-
               Row(
                 children: [
                   Container(
                     width: 7,
                     height: 7,
 
-                    decoration:
-                        const BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: teal,
                       shape: BoxShape.circle,
                     ),
@@ -1634,8 +1360,7 @@ final Widget content =
 
                   Text(
                     "INVESTMENT // DETAILS",
-                    style:
-                        GoogleFonts.spaceMono(
+                    style: GoogleFonts.spaceMono(
                       color: teal,
                       fontSize: 10,
                       letterSpacing: 1.2,
@@ -1649,7 +1374,6 @@ final Widget content =
               // --------------------------------------------------
               // HERO
               // --------------------------------------------------
-
               investmentSummaryCard(),
 
               const SizedBox(height: 30),
@@ -1657,20 +1381,15 @@ final Widget content =
               // --------------------------------------------------
               // INVESTMENT INFORMATION
               // --------------------------------------------------
-
               Row(
                 children: [
                   Container(
                     width: 4,
                     height: 22,
 
-                    decoration:
-                        BoxDecoration(
+                    decoration: BoxDecoration(
                       color: teal,
-                      borderRadius:
-                          BorderRadius.circular(
-                        4,
-                      ),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
 
@@ -1678,8 +1397,7 @@ final Widget content =
 
                   Text(
                     "Investment Information",
-                    style:
-                        GoogleFonts.pressStart2p(
+                    style: GoogleFonts.pressStart2p(
                       color: Colors.white,
                       fontSize: 14,
                     ),
@@ -1690,19 +1408,13 @@ final Widget content =
               const SizedBox(height: 15),
 
               LayoutBuilder(
-                builder:
-                    (context, constraints) {
-                  final bool twoColumns =
-                      constraints.maxWidth >=
-                          600;
+                builder: (context, constraints) {
+                  final bool twoColumns = constraints.maxWidth >= 600;
 
                   final cards = [
                     informationCard(
                       "Quantity",
-                      investmentData[
-                                  "quantity"]
-                              ?.toString() ??
-                          "0",
+                      investmentData["quantity"]?.toString() ?? "0",
                       Icons.layers_outlined,
                     ),
 
@@ -1722,10 +1434,7 @@ final Widget content =
 
                     informationCard(
                       "Purchase Date",
-                      investmentData[
-                                  "purchaseDate"]
-                              ?.toString() ??
-                          "",
+                      investmentData["purchaseDate"]?.toString() ?? "",
                       Icons.calendar_today_outlined,
                     ),
                   ];
@@ -1735,14 +1444,9 @@ final Widget content =
                       children: cards
                           .map(
                             (card) => Padding(
-                              padding:
-                                  const EdgeInsets
-                                      .only(
-                                bottom: 10,
-                              ),
+                              padding: const EdgeInsets.only(bottom: 10),
                               child: SizedBox(
-                                width:
-                                    double.infinity,
+                                width: double.infinity,
                                 child: card,
                               ),
                             ),
@@ -1757,8 +1461,7 @@ final Widget content =
                     mainAxisSpacing: 10,
                     childAspectRatio: 4.6,
                     shrinkWrap: true,
-                    physics:
-                        const NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     children: cards,
                   );
                 },
@@ -1769,20 +1472,15 @@ final Widget content =
               // --------------------------------------------------
               // TRANSACTION HEADER
               // --------------------------------------------------
-
               Row(
                 children: [
                   Container(
                     width: 4,
                     height: 22,
 
-                    decoration:
-                        BoxDecoration(
+                    decoration: BoxDecoration(
                       color: teal,
-                      borderRadius:
-                          BorderRadius.circular(
-                        4,
-                      ),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
 
@@ -1791,8 +1489,7 @@ final Widget content =
                   Expanded(
                     child: Text(
                       "Transaction History",
-                      style:
-                          GoogleFonts.pressStart2p(
+                      style: GoogleFonts.pressStart2p(
                         color: Colors.white,
                         fontSize: 14,
                       ),
@@ -1800,31 +1497,22 @@ final Widget content =
                   ),
 
                   MouseRegion(
-                    cursor:
-                        SystemMouseCursors.click,
+                    cursor: SystemMouseCursors.click,
 
                     child: TextButton.icon(
                       onPressed: () {
                         addTransaction(context);
                       },
 
-                      style:
-                          TextButton.styleFrom(
-                        foregroundColor: teal,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: teal),
 
-                      icon: const Icon(
-                        Icons.add_rounded,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
 
                       label: Text(
                         "ADD",
-                        style:
-                            GoogleFonts.spaceMono(
+                        style: GoogleFonts.spaceMono(
                           fontSize: 11,
-                          fontWeight:
-                              FontWeight.bold,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -1841,70 +1529,47 @@ final Widget content =
               // --------------------------------------------------
               // ACTIONS
               // --------------------------------------------------
-
               LayoutBuilder(
-                builder:
-                    (context, constraints) {
-                  final bool stacked =
-                      constraints.maxWidth <
-                          600;
+                builder: (context, constraints) {
+                  final bool stacked = constraints.maxWidth < 600;
 
                   if (stacked) {
                     return Column(
                       children: [
                         SizedBox(
-                          width:
-                              double.infinity,
-                          child:
-                              _actionButton(
-                            label:
-                                "EDIT INVESTMENT",
-                            icon:
-                                Icons.edit_rounded,
+                          width: double.infinity,
+                          child: _actionButton(
+                            label: "EDIT INVESTMENT",
+                            icon: Icons.edit_rounded,
                             primary: true,
-                            onPressed:
-                                () async {
-                              await Navigator
-                                  .push(
+                            onPressed: () async {
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      EditInvestmentScreen(
-                                    investmentId:
-                                        investmentId,
-                                    investmentData:
-                                        investmentData,
+                                  builder: (_) => EditInvestmentScreen(
+                                    investmentId: investmentId,
+                                    investmentData: investmentData,
                                   ),
                                 ),
                               );
 
-                              if (context
-                                  .mounted) {
-                                Navigator.pop(
-                                    context);
+                              if (context.mounted) {
+                                Navigator.pop(context);
                               }
                             },
                           ),
                         ),
 
-                        const SizedBox(
-                          height: 10,
-                        ),
+                        const SizedBox(height: 10),
 
                         SizedBox(
-                          width:
-                              double.infinity,
-                          child:
-                              _actionButton(
-                            label:
-                                "DELETE INVESTMENT",
-                            icon:
-                                Icons
-                                    .delete_outline_rounded,
+                          width: double.infinity,
+                          child: _actionButton(
+                            label: "DELETE INVESTMENT",
+                            icon: Icons.delete_outline_rounded,
                             primary: false,
                             onPressed: () {
-                              deleteInvestment(
-                                  context);
+                              deleteInvestment(context);
                             },
                           ),
                         ),
@@ -1915,53 +1580,37 @@ final Widget content =
                   return Row(
                     children: [
                       Expanded(
-                        child:
-                            _actionButton(
-                          label:
-                              "EDIT INVESTMENT",
-                          icon:
-                              Icons.edit_rounded,
+                        child: _actionButton(
+                          label: "EDIT INVESTMENT",
+                          icon: Icons.edit_rounded,
                           primary: true,
-                          onPressed:
-                              () async {
-                            await Navigator
-                                .push(
+                          onPressed: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    EditInvestmentScreen(
-                                  investmentId:
-                                      investmentId,
-                                  investmentData:
-                                      investmentData,
+                                builder: (_) => EditInvestmentScreen(
+                                  investmentId: investmentId,
+                                  investmentData: investmentData,
                                 ),
                               ),
                             );
 
-                            if (context
-                                .mounted) {
-                              Navigator.pop(
-                                  context);
+                            if (context.mounted) {
+                              Navigator.pop(context);
                             }
                           },
                         ),
                       ),
 
-                      const SizedBox(
-                        width: 12,
-                      ),
+                      const SizedBox(width: 12),
 
                       Expanded(
-                        child:
-                            _actionButton(
-                          label:
-                              "DELETE INVESTMENT",
-                          icon: Icons
-                              .delete_outline_rounded,
+                        child: _actionButton(
+                          label: "DELETE INVESTMENT",
+                          icon: Icons.delete_outline_rounded,
                           primary: false,
                           onPressed: () {
-                            deleteInvestment(
-                                context);
+                            deleteInvestment(context);
                           },
                         ),
                       ),

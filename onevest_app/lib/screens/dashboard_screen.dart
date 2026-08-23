@@ -11,7 +11,7 @@ import 'add_investment_screen.dart';
 import 'ai_screen.dart' as ai;
 import 'portfolio_analytics_screen.dart' as analytics;
 import 'portfolio_screen.dart' as portfolio;
-import 'profile_screen.dart' as profile;
+import 'user_profile_screen.dart' as profile;
 import '../widgets/live_market_widget.dart';
 import 'ai_agent_screen.dart' as ai_agent;
 import '../services/market_price_cache.dart';

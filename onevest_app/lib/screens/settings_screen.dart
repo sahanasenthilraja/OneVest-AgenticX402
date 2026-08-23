@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import 'profile_screen.dart';
+import 'login_screen.dart';
+import 'user_profile_screen.dart';
 import 'privacy_security_screen.dart';
 import 'about_onevest_screen.dart';
 

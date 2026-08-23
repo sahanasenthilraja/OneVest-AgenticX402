@@ -3,10 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/security_service.dart';
-import 'settings_screen.dart';
 import 'login_screen.dart';
 import '../services/app_lock_service.dart';
-
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,13 +15,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // ============================================================
   // ONEVEST THEME
   // ============================================================
 
   static const Color background = Color(0xFF020B1D);
   static const Color surface = Color(0xFF0A1428);
-  
+
   static const Color border = Color(0xFF243B60);
 
   static const Color teal = Color(0xFF14C8B0);
@@ -126,11 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: red,
           content: Text(
             "Unable to load profile",
-            style: mono(
-              13,
-              color: white,
-              weight: FontWeight.bold,
-            ),
+            style: mono(13, color: white, weight: FontWeight.bold),
           ),
         ),
       );
@@ -151,20 +145,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: border),
           ),
-          title: Text(
-            "LOG OUT?",
-            style: heading(
-              14,
-              color: white,
-            ),
-          ),
+          title: Text("LOG OUT?", style: heading(14, color: white)),
           content: Text(
             "Are you sure you want to log out of OneVest?",
-            style: mono(
-              14,
-              color: muted,
-              height: 1.5,
-            ),
+            style: mono(14, color: muted, height: 1.5),
           ),
           actions: [
             TextButton(
@@ -173,11 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
               child: Text(
                 "CANCEL",
-                style: mono(
-                  12,
-                  color: muted,
-                  weight: FontWeight.bold,
-                ),
+                style: mono(12, color: muted, weight: FontWeight.bold),
               ),
             ),
             ElevatedButton(
@@ -194,11 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Text(
                 "LOG OUT",
-                style: mono(
-                  12,
-                  color: Colors.white,
-                  weight: FontWeight.bold,
-                ),
+                style: mono(12, color: Colors.white, weight: FontWeight.bold),
               ),
             ),
           ],
@@ -213,27 +189,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-  // Stop the automatic session-lock timer.
-  AppLockService.stop();
+      // Stop the automatic session-lock timer.
+      AppLockService.stop();
 
-  // Remove the locally stored Transaction PIN.
-  await SecurityService.clearPin();
+      // Remove the locally stored Transaction PIN.
+      await SecurityService.clearPin(
+        FirebaseAuth.instance.currentUser!.uid,
+      );
 
-  // Sign the user out of Firebase.
-  await FirebaseAuth.instance.signOut();
+      // Sign the user out of Firebase.
+      await FirebaseAuth.instance.signOut();
 
-  if (!mounted) return;
+      if (!mounted) return;
 
-  // Remove all previous screens so the user
-  // cannot navigate back into the authenticated app.
-  Navigator.pushAndRemoveUntil(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const LoginScreen(),
-    ),
-    (route) => false,
-  );
-} catch (e) {
+      // Remove all previous screens so the user
+      // cannot navigate back into the authenticated app.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
@@ -245,18 +221,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: red,
           content: Text(
             "Logout failed. Please try again.",
-            style: mono(
-              13,
-              color: white,
-              weight: FontWeight.bold,
-            ),
+            style: mono(13, color: white, weight: FontWeight.bold),
           ),
         ),
       );
     }
   }
-
-  
 
   // ============================================================
   // TRANSACTION PIN
@@ -276,20 +246,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: border),
           ),
-          title: Text(
-            "SET TRANSACTION PIN",
-            style: heading(14, color: white),
-          ),
+          title: Text("SET TRANSACTION PIN", style: heading(14, color: white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 "Create a 4-digit PIN to authorize AI Agent payments.",
-                style: mono(
-                  12,
-                  color: muted,
-                  height: 1.5,
-                ),
+                style: mono(12, color: muted, height: 1.5),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -338,11 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
               child: Text(
                 "CANCEL",
-                style: mono(
-                  11,
-                  color: muted,
-                  weight: FontWeight.bold,
-                ),
+                style: mono(11, color: muted, weight: FontWeight.bold),
               ),
             ),
             ElevatedButton(
@@ -376,7 +335,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return;
                 }
 
-                await SecurityService.savePin(pin);
+                await SecurityService.savePin(
+  FirebaseAuth.instance.currentUser!.uid,
+  pin,
+);
 
                 if (!dialogContext.mounted) return;
 
@@ -392,11 +354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Text(
                 "SAVE PIN",
-                style: mono(
-                  11,
-                  color: Colors.black,
-                  weight: FontWeight.bold,
-                ),
+                style: mono(11, color: Colors.black, weight: FontWeight.bold),
               ),
             ),
           ],
@@ -415,11 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: tealDark,
           content: Text(
             "Transaction PIN secured successfully.",
-            style: mono(
-              12,
-              color: white,
-              weight: FontWeight.bold,
-            ),
+            style: mono(12, color: white, weight: FontWeight.bold),
           ),
         ),
       );
@@ -428,8 +382,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ============================================================
   // KYC INFORMATION
   // ============================================================
-
-  
 
   // ============================================================
   // BUILD
@@ -450,16 +402,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: teal.withValues(alpha: 0.10),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: teal.withValues(alpha: 0.25),
-                  ),
+                  border: Border.all(color: teal.withValues(alpha: 0.25)),
                 ),
                 child: const Padding(
                   padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(
-                    color: teal,
-                    strokeWidth: 3,
-                  ),
+                  child: CircularProgressIndicator(color: teal, strokeWidth: 3),
                 ),
               ),
               const SizedBox(height: 20),
@@ -485,53 +432,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final email = userData?["email"]?.toString() ?? "";
     final phone = userData?["phone"]?.toString() ?? "";
 
-    final riskProfile =
-    userData?["riskProfile"]?.toString().isNotEmpty == true
+    final riskProfile = userData?["riskProfile"]?.toString().isNotEmpty == true
         ? userData!["riskProfile"].toString()
         : "Not Set";
 
-final kycStatus =
-    userData?["kycStatus"]?.toString().isNotEmpty == true
+    final kycStatus = userData?["kycStatus"]?.toString().isNotEmpty == true
         ? userData!["kycStatus"].toString()
         : "Not Verified";
 
-final initials = _getInitials(name);
+    final initials = _getInitials(name);
     return Scaffold(
       backgroundColor: background,
 
       // ============================================================
       // APP BAR
       // ============================================================
-
       appBar: AppBar(
         backgroundColor: background,
         elevation: 0,
         centerTitle: false,
 
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: white,
-            size: 28,
-          ),
+          icon: const Icon(Icons.arrow_back_rounded, color: white, size: 28),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
 
-        title: Text(
-          "Profile",
-          style: heading(
-            16,
-            color: white,
-          ),
-        ),
+        title: Text("Profile", style: heading(16, color: white)),
       ),
 
       // ============================================================
       // BODY
       // ============================================================
-
       body: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
@@ -542,8 +475,8 @@ final initials = _getInitials(name);
           final double horizontalPadding = desktop
               ? 70
               : tablet
-                  ? 40
-                  : 18;
+              ? 40
+              : 18;
 
           return RefreshIndicator(
             color: teal,
@@ -561,16 +494,13 @@ final initials = _getInitials(name);
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 1150,
-                  ),
+                  constraints: const BoxConstraints(maxWidth: 1150),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // ==================================================
                       // PROFILE HERO
                       // ==================================================
-
                       _profileHero(
                         name: name,
                         email: email,
@@ -582,7 +512,6 @@ final initials = _getInitials(name);
                       // ==================================================
                       // PROFILE INFORMATION
                       // ==================================================
-
                       _sectionTitle(
                         icon: Icons.person_outline_rounded,
                         title: "Personal Information",
@@ -600,9 +529,7 @@ final initials = _getInitials(name);
                               child: _infoCard(
                                 icon: Icons.email_outlined,
                                 title: "EMAIL ADDRESS",
-                                value: email.isEmpty
-                                    ? "Not provided"
-                                    : email,
+                                value: email.isEmpty ? "Not provided" : email,
                                 color: teal,
                               ),
                             ),
@@ -611,9 +538,7 @@ final initials = _getInitials(name);
                               child: _infoCard(
                                 icon: Icons.phone_outlined,
                                 title: "PHONE NUMBER",
-                                value: phone.isEmpty
-                                    ? "Not provided"
-                                    : phone,
+                                value: phone.isEmpty ? "Not provided" : phone,
                                 color: purple,
                               ),
                             ),
@@ -625,18 +550,14 @@ final initials = _getInitials(name);
                             _infoCard(
                               icon: Icons.email_outlined,
                               title: "EMAIL ADDRESS",
-                              value: email.isEmpty
-                                  ? "Not provided"
-                                  : email,
+                              value: email.isEmpty ? "Not provided" : email,
                               color: teal,
                             ),
                             const SizedBox(height: 15),
                             _infoCard(
                               icon: Icons.phone_outlined,
                               title: "PHONE NUMBER",
-                              value: phone.isEmpty
-                                  ? "Not provided"
-                                  : phone,
+                              value: phone.isEmpty ? "Not provided" : phone,
                               color: purple,
                             ),
                           ],
@@ -647,7 +568,6 @@ final initials = _getInitials(name);
                       // ==================================================
                       // INVESTOR PROFILE
                       // ==================================================
-
                       _sectionTitle(
                         icon: Icons.insights_rounded,
                         title: "Investor Profile",
@@ -659,157 +579,155 @@ final initials = _getInitials(name);
 
                       _riskCard(riskProfile),
 
-const SizedBox(height: 22),
+                      const SizedBox(height: 22),
 
-// ==================================================
-// SECURITY
-// ==================================================
+                      // ==================================================
+                      // SECURITY
+                      // ==================================================
+                      _sectionTitle(
+                        icon: Icons.security_rounded,
+                        title: "Security",
+                        subtitle: "Protect AI Agent transactions",
+                        color: teal,
+                      ),
 
-_sectionTitle(
-  icon: Icons.security_rounded,
-  title: "Security",
-  subtitle: "Protect AI Agent transactions",
-  color: teal,
-),
+                      const SizedBox(height: 15),
 
-const SizedBox(height: 15),
-
-FutureBuilder<bool>(
-  future: SecurityService.hasPin(),
-  builder: (context, snapshot) {
-    final pinConfigured = snapshot.data ?? false;
-
-    return _actionCard(
-      icon: Icons.lock_outline_rounded,
-      title: "Transaction PIN",
-      subtitle: pinConfigured
-          ? "PIN is configured for AI Agent payments"
-          : "Set a PIN to authorize AI Agent payments",
-      color: teal,
-      onTap: _setupTransactionPin,
-    );
-  },
-),
-const SizedBox(height: 22),
-
-// ==================================================
-// KYC / IDENTITY VERIFICATION
-// ==================================================
-
-_sectionTitle(
-  icon: Icons.badge_outlined,
-  title: "Identity Verification",
-  subtitle: "KYC status for financial services",
-  color: orange,
-),
-
-const SizedBox(height: 15),
-
-Container(
-  width: double.infinity,
-  padding: const EdgeInsets.all(20),
-  decoration: BoxDecoration(
-    color: surface,
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(
-      color: border,
-    ),
+                      FutureBuilder<bool>(
+  future: SecurityService.hasPin(
+    FirebaseAuth.instance.currentUser!.uid,
   ),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: orange.withValues(alpha: 0.09),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.verified_user_outlined,
-              color: orange,
-              size: 25,
-            ),
-          ),
+                        builder: (context, snapshot) {
+                          final pinConfigured = snapshot.data ?? false;
 
-          const SizedBox(width: 15),
+                          return _actionCard(
+                            icon: Icons.lock_outline_rounded,
+                            title: "Transaction PIN",
+                            subtitle: pinConfigured
+                                ? "PIN is configured for AI Agent payments"
+                                : "Set a PIN to authorize AI Agent payments",
+                            color: teal,
+                            onTap: _setupTransactionPin,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 22),
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "KYC STATUS",
-                  style: mono(
-                    10,
-                    color: muted,
-                    weight: FontWeight.bold,
-                    spacing: 0.8,
-                  ),
-                ),
+                      // ==================================================
+                      // KYC / IDENTITY VERIFICATION
+                      // ==================================================
+                      _sectionTitle(
+                        icon: Icons.badge_outlined,
+                        title: "Identity Verification",
+                        subtitle: "KYC status for financial services",
+                        color: orange,
+                      ),
 
-                const SizedBox(height: 6),
+                      const SizedBox(height: 15),
 
-                Text(
-                  kycStatus,
-                  style: mono(
-                    17,
-                    color: kycStatus.toLowerCase() == "verified"
-                        ? green
-                        : orange,
-                    weight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: orange.withValues(alpha: 0.09),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.verified_user_outlined,
+                                    color: orange,
+                                    size: 25,
+                                  ),
+                                ),
 
-          Icon(
-            kycStatus.toLowerCase() == "verified"
-                ? Icons.check_circle_rounded
-                : Icons.pending_outlined,
-            color: kycStatus.toLowerCase() == "verified"
-                ? green
-                : orange,
-            size: 25,
-          ),
-        ],
-      ),
+                                const SizedBox(width: 15),
 
-      const SizedBox(height: 18),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "KYC STATUS",
+                                        style: mono(
+                                          10,
+                                          color: muted,
+                                          weight: FontWeight.bold,
+                                          spacing: 0.8,
+                                        ),
+                                      ),
 
-      Text(
-        kycStatus.toLowerCase() == "verified"
-            ? "Identity verification has been completed."
-            : "Identity verification is required before regulated investment services.",
-        style: mono(
-          11,
-          color: muted,
-          height: 1.5,
-        ),
-      ),
+                                      const SizedBox(height: 6),
 
-      const SizedBox(height: 15),
+                                      Text(
+                                        kycStatus,
+                                        style: mono(
+                                          17,
+                                          color:
+                                              kycStatus.toLowerCase() ==
+                                                  "verified"
+                                              ? green
+                                              : orange,
+                                          weight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
 
-      _actionCard(
-        icon: Icons.arrow_forward_rounded,
-        title: "Start KYC",
-        subtitle: "Continue with an authorised KYC provider",
-        color: orange,
-        onTap: () => _showKycInformationDialog(context),
-      ),
-    ],
-  ),
-),
+                                Icon(
+                                  kycStatus.toLowerCase() == "verified"
+                                      ? Icons.check_circle_rounded
+                                      : Icons.pending_outlined,
+                                  color: kycStatus.toLowerCase() == "verified"
+                                      ? green
+                                      : orange,
+                                  size: 25,
+                                ),
+                              ],
+                            ),
 
-const SizedBox(height: 22),
+                            const SizedBox(height: 18),
 
-// ==================================================
-// ACCOUNT ACTIONS
-// ==================================================
-                    _sectionTitle(
+                            Text(
+                              kycStatus.toLowerCase() == "verified"
+                                  ? "Identity verification has been completed."
+                                  : "Identity verification is required before regulated investment services.",
+                              style: mono(11, color: muted, height: 1.5),
+                            ),
+
+                            const SizedBox(height: 15),
+
+                            _actionCard(
+                              icon: Icons.arrow_forward_rounded,
+                              title: "Start KYC",
+                              subtitle:
+                                  "Continue with an authorised KYC provider",
+                              color: orange,
+                              onTap: () => _showKycInformationDialog(context),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      // ==================================================
+                      // ACCOUNT ACTIONS
+                      // ==================================================
+                      _sectionTitle(
                         icon: Icons.tune_rounded,
                         title: "Account",
                         subtitle: "Manage your OneVest experience",
@@ -849,7 +767,6 @@ const SizedBox(height: 22),
                       // ==================================================
                       // FOOTER
                       // ==================================================
-
                       Center(
                         child: Column(
                           children: [
@@ -872,19 +789,12 @@ const SizedBox(height: 22),
                             const SizedBox(height: 12),
                             Text(
                               "ONEVEST",
-                              style: heading(
-                                11,
-                                color: teal,
-                                spacing: 1.2,
-                              ),
+                              style: heading(11, color: teal, spacing: 1.2),
                             ),
                             const SizedBox(height: 7),
                             Text(
                               "Smart investing. One portfolio.",
-                              style: mono(
-                                11,
-                                color: muted,
-                              ),
+                              style: mono(11, color: muted),
                             ),
                           ],
                         ),
@@ -916,15 +826,10 @@ const SizedBox(height: 22),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF102B47),
-            Color(0xFF0B172C),
-          ],
+          colors: [Color(0xFF102B47), Color(0xFF0B172C)],
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: teal.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: teal.withValues(alpha: 0.22)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.25),
@@ -941,12 +846,7 @@ const SizedBox(height: 22),
             height: 92,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [
-                  teal,
-                  tealDark,
-                ],
-              ),
+              gradient: const LinearGradient(colors: [teal, tealDark]),
               boxShadow: [
                 BoxShadow(
                   color: teal.withValues(alpha: 0.20),
@@ -958,11 +858,7 @@ const SizedBox(height: 22),
             child: Center(
               child: Text(
                 initials,
-                style: mono(
-                  26,
-                  color: Colors.black,
-                  weight: FontWeight.w900,
-                ),
+                style: mono(26, color: Colors.black, weight: FontWeight.w900),
               ),
             ),
           ),
@@ -989,11 +885,7 @@ const SizedBox(height: 22),
                   name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: mono(
-                    25,
-                    color: white,
-                    weight: FontWeight.w900,
-                  ),
+                  style: mono(25, color: white, weight: FontWeight.w900),
                 ),
 
                 const SizedBox(height: 8),
@@ -1003,10 +895,7 @@ const SizedBox(height: 22),
                     email,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: mono(
-                      13,
-                      color: muted,
-                    ),
+                    style: mono(13, color: muted),
                   ),
               ],
             ),
@@ -1016,33 +905,20 @@ const SizedBox(height: 22),
 
           // ACTIVE STATUS
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 13,
-              vertical: 9,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
             decoration: BoxDecoration(
               color: green.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: green.withValues(alpha: 0.20),
-              ),
+              border: Border.all(color: green.withValues(alpha: 0.20)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.circle,
-                  color: green,
-                  size: 8,
-                ),
+                const Icon(Icons.circle, color: green, size: 8),
                 const SizedBox(width: 7),
                 Text(
                   "ACTIVE",
-                  style: mono(
-                    10,
-                    color: green,
-                    weight: FontWeight.bold,
-                  ),
+                  style: mono(10, color: green, weight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1070,15 +946,9 @@ const SizedBox(height: 22),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.09),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: color.withValues(alpha: 0.18),
-            ),
+            border: Border.all(color: color.withValues(alpha: 0.18)),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 23,
-          ),
+          child: Icon(icon, color: color, size: 23),
         ),
 
         const SizedBox(width: 13),
@@ -1089,20 +959,10 @@ const SizedBox(height: 22),
             children: [
               Text(
                 title,
-                style: mono(
-                  16,
-                  color: white,
-                  weight: FontWeight.w900,
-                ),
+                style: mono(16, color: white, weight: FontWeight.w900),
               ),
               const SizedBox(height: 5),
-              Text(
-                subtitle,
-                style: mono(
-                  12,
-                  color: muted,
-                ),
-              ),
+              Text(subtitle, style: mono(12, color: muted)),
             ],
           ),
         ),
@@ -1128,9 +988,7 @@ const SizedBox(height: 22),
         decoration: BoxDecoration(
           color: surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: border,
-          ),
+          border: Border.all(color: border),
         ),
         child: Row(
           children: [
@@ -1141,11 +999,7 @@ const SizedBox(height: 22),
                 color: color.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 23,
-              ),
+              child: Icon(icon, color: color, size: 23),
             ),
 
             const SizedBox(width: 15),
@@ -1170,11 +1024,7 @@ const SizedBox(height: 22),
                     value,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: mono(
-                      15,
-                      color: white,
-                      weight: FontWeight.bold,
-                    ),
+                    style: mono(15, color: white, weight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -1212,9 +1062,7 @@ const SizedBox(height: 22),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.055),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: color.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
       ),
       child: Row(
         children: [
@@ -1225,11 +1073,7 @@ const SizedBox(height: 22),
               color: color.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 29,
-            ),
+            child: Icon(icon, color: color, size: 29),
           ),
 
           const SizedBox(width: 17),
@@ -1252,21 +1096,14 @@ const SizedBox(height: 22),
 
                 Text(
                   riskProfile,
-                  style: mono(
-                    22,
-                    color: color,
-                    weight: FontWeight.w900,
-                  ),
+                  style: mono(22, color: color, weight: FontWeight.w900),
                 ),
 
                 const SizedBox(height: 5),
 
                 Text(
                   "Your investment risk preference",
-                  style: mono(
-                    12,
-                    color: muted,
-                  ),
+                  style: mono(12, color: muted),
                 ),
               ],
             ),
@@ -1311,9 +1148,7 @@ const SizedBox(height: 22),
               color: surface,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: onTap != null
-                    ? border
-                    : color.withValues(alpha: 0.15),
+                color: onTap != null ? border : color.withValues(alpha: 0.15),
               ),
             ),
             child: Row(
@@ -1333,11 +1168,7 @@ const SizedBox(height: 22),
                             strokeWidth: 2.5,
                           ),
                         )
-                      : Icon(
-                          icon,
-                          color: color,
-                          size: 24,
-                        ),
+                      : Icon(icon, color: color, size: 24),
                 ),
 
                 const SizedBox(width: 15),
@@ -1348,22 +1179,12 @@ const SizedBox(height: 22),
                     children: [
                       Text(
                         title,
-                        style: mono(
-                          15,
-                          color: white,
-                          weight: FontWeight.bold,
-                        ),
+                        style: mono(15, color: white, weight: FontWeight.bold),
                       ),
 
                       const SizedBox(height: 5),
 
-                      Text(
-                        subtitle,
-                        style: mono(
-                          11,
-                          color: muted,
-                        ),
-                      ),
+                      Text(subtitle, style: mono(11, color: muted)),
                     ],
                   ),
                 ),
@@ -1395,18 +1216,20 @@ const SizedBox(height: 22),
     final parts = cleanName.split(RegExp(r'\s+'));
 
     if (parts.length == 1) {
-      return parts.first.substring(
-        0,
-        parts.first.length >= 2 ? 2 : 1,
-      ).toUpperCase();
+      final word = parts.first;
+
+      if (word.length >= 2) {
+        return word.substring(0, 2).toUpperCase();
+      }
+
+      return word.substring(0, 1).toUpperCase();
     }
 
     return "${parts.first[0]}${parts.last[0]}".toUpperCase();
   }
 }
-Future<void> _showKycInformationDialog(
-  BuildContext context,
-) async {
+
+Future<void> _showKycInformationDialog(BuildContext context) async {
   await showDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -1414,9 +1237,7 @@ Future<void> _showKycInformationDialog(
         backgroundColor: const Color(0xFF0A1428),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(
-            color: Color(0xFF243B60),
-          ),
+          side: const BorderSide(color: Color(0xFF243B60)),
         ),
         title: const Text(
           "KYC VERIFICATION",

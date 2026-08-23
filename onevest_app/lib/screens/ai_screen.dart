@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'portfolio_screen.dart';
-import 'profile_screen.dart';
+import 'user_profile_screen.dart';
 import 'portfolio_analytics_screen.dart';
 import 'roast_screen.dart';
 import 'financial_twin_screen.dart';
